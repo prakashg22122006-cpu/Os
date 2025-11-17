@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Header from './components/Header';
@@ -86,8 +85,8 @@ const AppContent: React.FC<{
   useSwipeGestures({
       onSwipeLeft: () => view === 'dashboard' && handleSetView('systems'),
       onSwipeRight: () => view === 'systems' && handleSetView('dashboard'),
-      onSwipeUp: () => setIsQuickCreateOpen(true),
-      onSwipeDown: () => !isFocusMode && setIsFocusMode(true),
+      // onSwipeUp: () => setIsQuickCreateOpen(true),
+      // onSwipeDown: () => !isFocusMode && setIsFocusMode(true),
   }, mainRef);
   
   useEffect(() => {

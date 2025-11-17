@@ -28,24 +28,27 @@ export function useSwipeGestures(handlers: SwipeHandlers, elementRef: RefObject<
 
       const dx = touchEndX - touchStart.current.x;
       const dy = touchEndY - touchStart.current.y;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
 
-      if (Math.abs(dx) > Math.abs(dy)) { // Horizontal swipe
-        if (Math.abs(dx) > minSwipeDistance) {
-          if (dx > 0) {
-            handlers.onSwipeRight?.();
-          } else {
-            handlers.onSwipeLeft?.();
-          }
+      // Check for horizontal swipe that is clearly horizontal
+      if (absDx > minSwipeDistance && absDx > 2 * absDy) {
+        if (dx > 0) {
+          handlers.onSwipeRight?.();
+        } else {
+          handlers.onSwipeLeft?.();
         }
-      } else { // Vertical swipe
-        if (Math.abs(dy) > minSwipeDistance) {
-          if (dy > 0) {
-            handlers.onSwipeDown?.();
-          } else {
-            handlers.onSwipeUp?.();
-          }
+      } 
+      // Check for vertical swipe that is clearly vertical
+      else if (absDy > minSwipeDistance && absDy > 2 * absDx) {
+        if (dy > 0) {
+          handlers.onSwipeDown?.();
+        } else {
+          handlers.onSwipeUp?.();
         }
       }
+      // Diagonal swipes are ignored to prevent conflicts with scrolling
+      
       touchStart.current = null;
     };
 
