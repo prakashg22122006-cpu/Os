@@ -22,8 +22,21 @@ const AppWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { appSettings } = useAppContext();
 
     useEffect(() => {
-        document.body.className = `theme-${appSettings.theme} layout-${appSettings.layout} font-${appSettings.fontFamily} ui-${appSettings.uiStyle}`;
-        
+        const classesToRemove = Array.from(document.body.classList).filter(cls =>
+            cls.startsWith('theme-') ||
+            cls.startsWith('layout-') ||
+            cls.startsWith('font-') ||
+            cls.startsWith('ui-')
+        );
+        document.body.classList.remove(...classesToRemove);
+
+        document.body.classList.add(
+            `theme-${appSettings.theme}`,
+            `layout-${appSettings.layout}`,
+            `font-${appSettings.fontFamily}`,
+            `ui-${appSettings.uiStyle}`
+        );
+
         const { themeConfig } = appSettings;
         const safeThemeConfig = themeConfig || {
             accentHue: 211,
