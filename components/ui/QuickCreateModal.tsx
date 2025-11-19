@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from './Button';
@@ -24,7 +23,7 @@ const QuickCreateModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             setTasks(prev => [newTask, ...prev]);
         } else if (type === 'note') {
             const newNote: Note = {
-                id: Date.now(), ts: Date.now(), updatedAt: Date.now(), title, content: '', attachments: [], template: 'standard'
+                id: Date.now(), ts: Date.now(), updatedAt: Date.now(), title, content: '', attachments: []
             };
             setNotes(prev => [newNote, ...prev]);
         } else if (type === 'event') {
@@ -37,15 +36,15 @@ const QuickCreateModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
 
     return (
-        <div className="quick-create-overlay" onClick={onClose}>
-            <div className="quick-create-modal" onClick={e => e.stopPropagation()}>
-                <h3 className="quick-create-title">Quick Create</h3>
-                <div className="quick-create-tabs">
-                    <button onClick={() => setType('task')} className={type === 'task' ? 'active' : ''}>Task</button>
-                    <button onClick={() => setType('note')} className={type === 'note' ? 'active' : ''}>Note</button>
-                    <button onClick={() => setType('event')} className={type === 'event' ? 'active' : ''}>Event</button>
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content glass-panel w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+                <h3 className="text-xl font-bold mb-4">Quick Create</h3>
+                <div className="flex items-center gap-2 p-1 glass-panel rounded-full mb-4">
+                    <button onClick={() => setType('task')} className={`flex-1 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${type === 'task' ? 'bg-white text-black' : 'text-text-dim hover:text-text'}`}>Task</button>
+                    <button onClick={() => setType('note')} className={`flex-1 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${type === 'note' ? 'bg-white text-black' : 'text-text-dim hover:text-text'}`}>Note</button>
+                    <button onClick={() => setType('event')} className={`flex-1 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${type === 'event' ? 'bg-white text-black' : 'text-text-dim hover:text-text'}`}>Event</button>
                 </div>
-                <div className="quick-create-form">
+                <div className="space-y-4">
                     <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Title" />
                     {(type === 'task' || type === 'event') && (
                         <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -54,9 +53,9 @@ const QuickCreateModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
                     )}
                 </div>
-                <div className="quick-create-actions">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave}>Create</Button>
+                <div className="flex justify-end gap-2 mt-6">
+                    <Button variant="glass" onClick={onClose}>Cancel</Button>
+                    <Button variant="gradient" onClick={handleSave}>Create</Button>
                 </div>
             </div>
         </div>

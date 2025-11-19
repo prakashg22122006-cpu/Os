@@ -1,12 +1,37 @@
 import React from 'react';
 
-const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+type InputProps = React.InputHTMLAttributes<HTMLInputElement> | React.TextareaHTMLAttributes<HTMLTextAreaElement> | React.SelectHTMLAttributes<HTMLSelectElement>;
+
+const Input = React.forwardRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, InputProps>(
   ({ className = '', ...props }, ref) => {
+    
+    if (props.type === 'textarea') {
+      return (
+        <textarea
+          ref={ref as React.ForwardedRef<HTMLTextAreaElement>}
+          className={`glass-textarea w-full ${className}`}
+          {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
+        />
+      );
+    }
+
+    if (props.type === 'select') {
+       return (
+        <select
+          ref={ref as React.ForwardedRef<HTMLSelectElement>}
+          className={`glass-select w-full ${className}`}
+          {...(props as React.SelectHTMLAttributes<HTMLSelectElement>)}
+        >
+          {props.children}
+        </select>
+       )
+    }
+
     return (
       <input
-        ref={ref}
-        className={`bg-transparent border border-[var(--input-border-color)] text-[var(--text-color-dim)] p-2 rounded-lg w-full box-border placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] ${className}`}
-        {...props}
+        ref={ref as React.ForwardedRef<HTMLInputElement>}
+        className={`glass-input w-full ${className}`}
+        {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
       />
     );
   }

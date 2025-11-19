@@ -3,177 +3,173 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
-import SystemsView from './components/SystemsView';
 import FileViewerModal from './components/ui/FileViewerModal';
 import TaskViewerModal from './components/ui/TaskViewerModal';
 import GlobalAudioPlayer from './components/GlobalAudioPlayer';
 import ScheduleEditorModal from './components/ui/ScheduleEditorModal';
-import ParallaxBackground from './components/ui/ParallaxBackground';
-import { useSwipeGestures } from './hooks/useSwipeGestures';
 import CommandPalette from './components/ui/CommandPalette';
 import QuickCreateModal from './components/ui/QuickCreateModal';
 import FocusView from './components/dashboard/FocusView';
 import CustomWallpaper from './components/ui/CustomWallpaper';
 import LiveWallpaperControls from './components/ui/LiveWallpaperControls';
 
-export type View = 'dashboard' | 'systems';
-
 const AppWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { appSettings } = useAppContext();
-
-    useEffect(() => {
-        document.body.className = `theme-${appSettings.theme} layout-${appSettings.layout} font-${appSettings.fontFamily} ui-${appSettings.uiStyle}`;
-        
-        const { themeConfig } = appSettings;
-        const safeThemeConfig = themeConfig || {
-            accentHue: 211,
-            accentSaturation: 100,
-            accentLightness: 65,
-            bgHue: 215,
-            bgSaturation: 25,
-            bgLightness: 10,
-        };
-
-        document.documentElement.style.setProperty('--accent-hue', String(safeThemeConfig.accentHue));
-        document.documentElement.style.setProperty('--accent-saturation', `${safeThemeConfig.accentSaturation}%`);
-        document.documentElement.style.setProperty('--accent-lightness', `${safeThemeConfig.accentLightness}%`);
-        document.documentElement.style.setProperty('--bg-hue', String(safeThemeConfig.bgHue));
-        document.documentElement.style.setProperty('--bg-saturation', `${safeThemeConfig.bgSaturation}%`);
-        document.documentElement.style.setProperty('--bg-lightness', `${safeThemeConfig.bgLightness}%`);
-
-    }, [appSettings]);
-
-    const hasCustomWallpaper = appSettings.wallpaper && appSettings.wallpaper.type !== 'default';
-
-    return (
-        <>
-            {hasCustomWallpaper ? (
-                <CustomWallpaper wallpaper={appSettings.wallpaper} />
-            ) : (
-                <>
-                    {appSettings.uiStyle === 'classic' && <ParallaxBackground />}
-                    {appSettings.uiStyle === 'modern' && <div className="modern-background" />}
-                </>
-            )}
-            {children}
-        </>
-    );
+    return <>{children}</>;
 };
 
 const AppContent: React.FC<{
-    view: View;
-    setView: (view: View) => void;
     isFocusMode: boolean;
     setIsFocusMode: (isFocus: boolean) => void;
-}> = ({ view, setView, isFocusMode, setIsFocusMode }) => {
-  const { viewingFile, viewingTask, viewingScheduleItem, appSettings, setEngagementLogs, setIsQuickCreateOpen, setIsCommandPaletteOpen } = useAppContext();
-  const mainRef = useRef<HTMLDivElement>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [displayedView, setDisplayedView] = useState(view);
-
-  const handleSetView = (newView: View) => {
-    if (newView === view) return;
-    setIsTransitioning(true);
-    setTimeout(() => {
-        setView(newView);
-        setDisplayedView(newView);
-        setIsTransitioning(false);
-    }, 300); // Corresponds to the fade-out animation duration
-  };
-
-
-  useSwipeGestures({
-      onSwipeLeft: () => view === 'dashboard' && handleSetView('systems'),
-      onSwipeRight: () => view === 'systems' && handleSetView('dashboard'),
-      // onSwipeUp: () => setIsQuickCreateOpen(true),
-      // onSwipeDown: () => !isFocusMode && setIsFocusMode(true),
-  }, mainRef);
+}> = ({ isFocusMode, setIsFocusMode }) => {
+  const { viewingFile, viewingTask, viewingScheduleItem, appSettings } = useAppContext();
   
-  useEffect(() => {
-    setEngagementLogs(prev => [...prev, {
-        ts: Date.now(),
-        activity: 'app_session_started'
-    }]);
-  }, [setEngagementLogs]);
-  
-  if (appSettings.uiStyle === 'modern') {
-    return (
-        <div className="min-h-screen">
-            <div ref={mainRef} className="max-w-7xl mx-auto" style={{ padding: 'var(--widget-gap)' }}>
-                 <div className={isFocusMode ? 'opacity-0 pointer-events-none' : 'transition-opacity'}>
-                    <Header activeView={view} setActiveView={handleSetView} />
-                </div>
-                <main className={`modern-content-perspective`}>
-                    <div className={`view-container ${isTransitioning ? 'fading-out' : ''}`}>
-                        {displayedView === 'dashboard' && <DashboardView setIsFocusMode={setIsFocusMode} />}
-                        {displayedView === 'systems' && <SystemsView />}
-                    </div>
-                </main>
-                {!isFocusMode && viewingFile && <FileViewerModal />}
-                {!isFocusMode && viewingTask && <TaskViewerModal />}
-                {!isFocusMode && viewingScheduleItem && <ScheduleEditorModal />}
-            </div>
-        </div>
-    );
-  }
-
   return (
-    <div ref={mainRef} className="main-content-wrapper">
-      <div className={isFocusMode ? 'opacity-0 pointer-events-none' : 'transition-opacity'}>
-        <Header activeView={view} setActiveView={setView} />
-      </div>
-      <main className={`dashboard-container ${isFocusMode ? 'fading-out' : ''}`}>
-        {view === 'dashboard' && <DashboardView setIsFocusMode={setIsFocusMode} />}
-        {view === 'systems' && <SystemsView />}
-      </main>
-      {!isFocusMode && viewingFile && <FileViewerModal />}
-      {!isFocusMode && viewingTask && <TaskViewerModal />}
-      {!isFocusMode && viewingScheduleItem && <ScheduleEditorModal />}
+    <div className="min-h-screen relative">
+        <CustomWallpaper wallpaper={appSettings.wallpaper} />
+        <LiveWallpaperControls />
+        <Header />
+        <main className={`transition-all duration-500 ease-in-out ${isFocusMode ? 'scale-95 blur-sm brightness-50 pointer-events-none' : 'scale-100 blur-0 brightness-100'}`}>
+            <div className="view-container space-y-6 pb-20 px-1 md:px-8 lg:px-12 pt-2 md:pt-4 h-[calc(100vh-60px)] md:h-[calc(100vh-80px)] overflow-hidden">
+                <DashboardView setIsFocusMode={setIsFocusMode} />
+            </div>
+        </main>
+        {viewingFile && <FileViewerModal />}
+        {viewingTask && <TaskViewerModal />}
+        {viewingScheduleItem && <ScheduleEditorModal />}
     </div>
   );
 };
 
 const App: React.FC = () => {
-  const [view, setView] = useState<View>('dashboard');
   const [isFocusMode, setIsFocusMode] = useState(false);
   
   return (
     <AppProvider>
-      <AppWithContext view={view} setView={setView} isFocusMode={isFocusMode} setIsFocusMode={setIsFocusMode} />
+      <AppWithContext isFocusMode={isFocusMode} setIsFocusMode={setIsFocusMode} />
     </AppProvider>
   );
 };
 
-// We need a sub-component to access the context providers
 const AppWithContext: React.FC<{
-    view: View, 
-    setView: (v: View) => void, 
     isFocusMode: boolean, 
     setIsFocusMode: (f: boolean) => void 
-}> = ({ view, setView, isFocusMode, setIsFocusMode }) => {
-    const { isCommandPaletteOpen, setIsCommandPaletteOpen, isQuickCreateOpen, setIsQuickCreateOpen } = useAppContext();
+}> = ({ isFocusMode, setIsFocusMode }) => {
+    const { isCommandPaletteOpen, setIsCommandPaletteOpen, isQuickCreateOpen, setIsQuickCreateOpen, appSettings } = useAppContext();
+
+    // Theme Application Effect
+    useEffect(() => {
+        const root = document.documentElement;
+        if (!appSettings) return;
+
+        const { 
+            theme = 'dark', 
+            fontFamily = 'sans', 
+            customFont = '',
+            layout = 'cozy', 
+            themeConfig = {}, 
+            uiStyle = 'classic', 
+            customCSS 
+        } = appSettings;
+
+        // 1. Typography
+        if (customFont && customFont.trim() !== '') {
+             root.style.setProperty('--font-sans', customFont);
+        } else {
+            const fonts = {
+                sans: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                serif: '"Lora", serif',
+                mono: '"Fira Code", monospace'
+            };
+            root.style.setProperty('--font-sans', fonts[fontFamily] || fonts['sans']);
+        }
+
+        // 2. Layout Density (Scaling)
+        const densities = {
+            compact: '14px',
+            cozy: '16px',
+            spacious: '18px'
+        };
+        root.style.fontSize = densities[layout] || densities['cozy'];
+        root.setAttribute('data-layout', layout);
+
+        // 3. UI Style
+        root.setAttribute('data-ui-style', uiStyle);
+
+        // 4. Theme (Light/Dark Text Colors)
+        root.setAttribute('data-theme', theme);
+        if (theme === 'light') {
+            root.style.setProperty('--text', '#1a1a1a');
+            root.style.setProperty('--text-dim', '#555555');
+            root.style.setProperty('--border-color', 'rgba(0, 0, 0, 0.15)');
+        } else {
+            root.style.setProperty('--text', '#EAEAEA');
+            root.style.setProperty('--text-dim', '#888888');
+            root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.1)');
+        }
+
+        // 5. Custom Colors & Advanced Config
+        const { 
+            accentHue = 211, 
+            accentSaturation = 100, 
+            accentLightness = 65, 
+            bgHue = 215, 
+            bgSaturation = 25, 
+            bgLightness = 10,
+            glassOpacity = 30,
+            glassBlur = 20,
+            borderRadius = 32
+        } = themeConfig;
+        
+        const hsl = (h: number, s: number, l: number) => `hsl(${h}, ${s}%, ${l}%)`;
+        
+        root.style.setProperty('--grad-1', hsl(accentHue, accentSaturation, accentLightness));
+        root.style.setProperty('--grad-2', hsl((accentHue + 40) % 360, accentSaturation, accentLightness));
+        root.style.setProperty('--bg', hsl(bgHue, bgSaturation, bgLightness));
+        
+        const offsetL = bgLightness > 50 ? Math.max(0, bgLightness - 5) : Math.min(100, bgLightness + 5);
+        root.style.setProperty('--bg-offset', hsl(bgHue, bgSaturation, offsetL));
+
+        root.style.setProperty('--glass-opacity', `${glassOpacity}%`);
+        root.style.setProperty('--glass-blur', `${glassBlur}px`);
+        root.style.setProperty('--border-radius', `${borderRadius}px`);
+
+        // 6. Custom CSS Injection
+        const cssId = 'user-custom-css';
+        let style = document.getElementById(cssId);
+        if (!style) {
+            style = document.createElement('style');
+            style.id = cssId;
+            document.head.appendChild(style);
+        }
+        style.textContent = customCSS || '';
+
+    }, [appSettings]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.code === 'Space' && (e.target as HTMLElement).tagName.toLowerCase() !== 'input' && (e.target as HTMLElement).tagName.toLowerCase() !== 'textarea' && !(e.target as HTMLElement).isContentEditable) {
+            if (e.key === ' ' && e.target === document.body) {
                 e.preventDefault();
-                setIsCommandPaletteOpen(true);
+                setIsCommandPaletteOpen(open => !open);
             }
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        document.body.addEventListener('keydown', handleKeyDown);
+        return () => document.body.removeEventListener('keydown', handleKeyDown);
     }, [setIsCommandPaletteOpen]);
 
+    const handleSetView = (view: 'dashboard' | 'systems') => {
+        // No-op for now as we unified views, but kept for prop compatibility if needed
+    };
+    
     return (
         <AppWrapper>
-            <AppContent view={view} setView={setView} isFocusMode={isFocusMode} setIsFocusMode={setIsFocusMode} />
-            {isFocusMode && <FocusView exitFocusMode={() => setIsFocusMode(false)} />}
-            {isCommandPaletteOpen && <CommandPalette onClose={() => setIsCommandPaletteOpen(false)} setView={setView} enterFocusMode={() => setIsFocusMode(true)} />}
-            {isQuickCreateOpen && <QuickCreateModal onClose={() => setIsQuickCreateOpen(false)} />}
+            <AppContent isFocusMode={isFocusMode} setIsFocusMode={setIsFocusMode} />
             <GlobalAudioPlayer />
-            <LiveWallpaperControls />
+
+            {isFocusMode && <FocusView exitFocusMode={() => setIsFocusMode(false)} />}
+            {isCommandPaletteOpen && <CommandPalette onClose={() => setIsCommandPaletteOpen(false)} setView={handleSetView} enterFocusMode={() => { setIsCommandPaletteOpen(false); setIsFocusMode(true); }} />}
+            {isQuickCreateOpen && <QuickCreateModal onClose={() => setIsQuickCreateOpen(false)} />}
         </AppWrapper>
     );
-}
+};
 
 export default App;

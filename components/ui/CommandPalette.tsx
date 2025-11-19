@@ -1,6 +1,9 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { View } from '../../App';
+import Input from './Input';
+
+export type View = 'dashboard' | 'systems';
 
 interface Command {
   id: string;
@@ -27,8 +30,6 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ onClose, setView, enter
         { id: 'systems', name: 'Go to Systems', action: () => setView('systems'), keywords: 'manage settings' },
         { id: 'focus', name: 'Enter Focus Mode', action: enterFocusMode, keywords: 'timer pomodoro deep work' },
         { id: 'quick_create', name: 'Quick Create...', action: () => setIsQuickCreateOpen(true), keywords: 'add new task note event' },
-        { id: 'add_task', name: 'Add a new task', action: () => { setIsQuickCreateOpen(true); /* More specific action could be added later */ }, keywords: 'todo' },
-        { id: 'add_note', name: 'Add a new note', action: () => { setIsQuickCreateOpen(true); }, keywords: 'idea' },
     ], [setView, enterFocusMode, setIsQuickCreateOpen]);
 
     const filteredCommands = useMemo(() => {
@@ -76,27 +77,27 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ onClose, setView, enter
     }, [selectedIndex]);
 
     return (
-        <div className="command-palette-overlay" onClick={onClose}>
-            <div className="command-palette-modal" onClick={e => e.stopPropagation()}>
-                <input
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content glass-panel w-full max-w-2xl p-4" onClick={e => e.stopPropagation()}>
+                <Input
                     ref={inputRef}
                     type="text"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Type a command..."
-                    className="command-palette-input"
+                    placeholder="Type a command or search..."
+                    className="w-full text-lg !border-0 !p-2 mb-2"
                 />
-                <ul ref={listRef} className="command-palette-list">
+                <ul ref={listRef} className="max-h-80 overflow-y-auto">
                     {filteredCommands.length > 0 ? filteredCommands.map((cmd, index) => (
                         <li
                             key={cmd.id}
-                            className={`command-palette-item ${index === selectedIndex ? 'selected' : ''}`}
+                            className={`p-3 rounded-lg cursor-pointer text-text-dim transition-colors ${index === selectedIndex ? 'bg-white/10 text-text' : 'hover:bg-white/5'}`}
                             onClick={() => { cmd.action(); onClose(); }}
                             onMouseEnter={() => setSelectedIndex(index)}
                         >
                             {cmd.name}
                         </li>
-                    )) : <li className="command-palette-item">No results found</li>}
+                    )) : <li className="p-3 text-text-dim">No results found</li>}
                 </ul>
             </div>
         </div>

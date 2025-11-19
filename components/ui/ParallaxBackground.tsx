@@ -22,11 +22,11 @@ const ParallaxBackground: React.FC = () => {
                 style={{ transform: `translate(${position.x * 10}px, ${position.y * 10}px) scale(1.2)` }}
             />
             <div
-                className="absolute -inset-32 bg-[radial-gradient(ellipse_at_center,_var(--accent-color)_0%,_transparent_60%)] opacity-10 blur-3xl transition-transform duration-500 ease-out"
+                className="absolute -inset-32 bg-[radial-gradient(ellipse_at_center,_var(--grad-1)_0%,_transparent_60%)] opacity-10 blur-3xl transition-transform duration-500 ease-out"
                 style={{ transform: `translate(${position.x * -30}px, ${position.y * -30}px)` }}
             />
              <div
-                className="absolute top-1/4 left-1/4 w-96 h-96 bg-[radial-gradient(ellipse_at_center,_var(--accent-color)_0%,_transparent_70%)] opacity-5 blur-3xl transition-transform duration-500 ease-out"
+                className="absolute top-1/4 left-1/4 w-96 h-96 bg-[radial-gradient(ellipse_at_center,_var(--grad-1)_0%,_transparent_70%)] opacity-5 blur-3xl transition-transform duration-500 ease-out"
                 style={{ transform: `translate(${position.x * -20}px, ${position.y * 30}px)` }}
             />
              <div

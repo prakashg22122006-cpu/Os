@@ -1,7 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from './Button';
+import Card from './Card';
 
 const FileViewerModal: React.FC = () => {
     const { viewingFile, setViewingFile, setEngagementLogs } = useAppContext();
@@ -26,7 +26,7 @@ const FileViewerModal: React.FC = () => {
         const fileData = viewingFile.data;
         
         let url: string | null = null;
-        if (fileType.startsWith('image/') || fileType === 'application/pdf') {
+        if (fileType.startsWith('image/') || fileType === 'application/pdf' || fileType.startsWith('video/')) {
             url = URL.createObjectURL(fileData);
             setObjectUrl(url);
             setIsLoading(false);
@@ -71,40 +71,41 @@ const FileViewerModal: React.FC = () => {
 
     const renderPreview = () => {
         if (isLoading) {
-            return <p className="text-center">Loading preview...</p>;
+            return <p className="text-center text-text-dim">Loading preview...</p>;
         }
         if (objectUrl) {
             if (viewingFile.type.startsWith('image/')) {
-                return <img src={objectUrl} alt={viewingFile.name} className="max-w-full max-h-full mx-auto object-contain" />;
+                return <img src={objectUrl} alt={viewingFile.name} className="max-w-full max-h-full mx-auto object-contain rounded-lg" />;
+            }
+            if (viewingFile.type.startsWith('video/')) {
+                return <video src={objectUrl} controls autoPlay className="max-w-full max-h-full mx-auto object-contain rounded-lg" />;
             }
             if (viewingFile.type === 'application/pdf') {
-                return <embed src={objectUrl} type="application/pdf" className="w-full h-full" />;
+                return <iframe src={objectUrl} className="w-full h-full border-0 rounded-lg" title={viewingFile.name} />;
             }
         }
         if (textContent) {
-            return <pre className="whitespace-pre-wrap text-sm p-4 bg-black/20 rounded-lg">{textContent}</pre>;
+            return <pre className="whitespace-pre-wrap text-sm p-4 bg-black/30 rounded-lg text-text-dim">{textContent}</pre>;
         }
         return (
             <div className="text-center p-8 flex flex-col items-center justify-center h-full">
-                <p className="text-xl mb-4 text-[#9fb3cf]">Cannot preview this file type.</p>
-                <Button onClick={handleDownload}>Download File</Button>
+                <p className="text-xl mb-4 text-text-dim">Cannot preview this file type.</p>
+                <Button variant="gradient" onClick={handleDownload}>Download File</Button>
             </div>
         );
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={handleClose}>
-            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[#5aa1ff]/20 rounded-xl shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <header className="flex items-center justify-between p-3 border-b border-white/10 flex-shrink-0">
-                    <h4 className="font-semibold truncate text-lg">{viewingFile.name}</h4>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleDownload}>Download</Button>
-                        <Button variant="primary" onClick={handleClose}>Close</Button>
-                    </div>
-                </header>
-                <main className="p-4 overflow-auto flex-grow">
+        <div className="modal-overlay" onClick={handleClose}>
+            <div className="modal-content w-full max-w-4xl h-[90vh]" onClick={(e) => e.stopPropagation()}>
+                <Card title={viewingFile.name} onClose={handleClose} className="p-4 w-full h-full">
+                   <div className="flex-grow min-h-0 flex items-center justify-center">
                     {renderPreview()}
-                </main>
+                   </div>
+                   <div className="flex-shrink-0 pt-4 flex justify-end">
+                     <Button variant="glass" onClick={handleDownload}>Download</Button>
+                   </div>
+                </Card>
             </div>
         </div>
     );

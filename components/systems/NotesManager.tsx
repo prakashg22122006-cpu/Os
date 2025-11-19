@@ -1,467 +1,269 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { Note, StoredFile, NoteTemplate, MindMapNode } from '../../types';
-import { addFile, getFiles, getFile } from '../../utils/db';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { Note, StoredFile, LinkResource } from '../../types';
+import { addFile, getFiles, getFile, updateFileMetadata, deleteFile } from '../../utils/db';
 import RichTextEditor from '../ui/RichTextEditor';
+import DropZone from '../ui/DropZone';
 
-const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
-  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
-    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
-  </h3>
+// --- ICONS ---
+const NoteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>;
+const FileIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" /></svg>;
+const LinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" /></svg>;
+const FolderIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5.293a1 1 0 01.707.293L12 6H8a2 2 0 00-2 2v1H4a2 2 0 01-2-2V6z" /><path d="M4 8a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" /></svg>;
+const TagIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A1 1 0 012 9V4a1 1 0 011-1h5a1 1 0 01.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>;
+
+const getResourceIcon = (type: string, mimeType?: string) => {
+    if (type === 'note') return <NoteIcon />;
+    if (type === 'link' || type === 'tool') return <LinkIcon />;
+    return <FileIcon />;
+};
+
+interface UnifiedResource {
+    id: number;
+    ts: number;
+    title: string;
+    type: 'note' | 'file' | 'link' | 'tool';
+    tags?: string[];
+    folder?: string;
+    // Note specific
+    content?: string;
+    attachments?: number[];
+    isPinned?: boolean;
+    // File specific
+    size?: number;
+    mimeType?: string;
+    // Link specific
+    url?: string;
+    description?: string;
+}
+
+const EmptyState: React.FC<{ onAction: () => void }> = ({ onAction }) => (
+    <div className="flex flex-col items-center justify-center h-full text-center text-[var(--text-dim)] p-4">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 className="text-xl font-semibold text-[var(--text)]">Your Knowledge Base Awaits</h3>
+        <p className="max-w-xs mt-2 mb-6">Create your first note, save a link, or upload a file to begin building your digital brain.</p>
+        <Button onClick={onAction}>Create Your First Note</Button>
+    </div>
 );
 
-const downloadJSON = (obj: any, name='export.json') => {
-  const blob = new Blob([JSON.stringify(obj, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
-};
-
-const formatBytes = (bytes: number, decimals = 2) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-};
-
-const NOTE_COLORS = [
-    { name: 'Default', bg: 'from-slate-800/50 to-slate-900/50', border: 'border-slate-700' },
-    { name: 'Blue', bg: 'from-blue-800/50 to-blue-900/50', border: 'border-blue-700' },
-    { name: 'Green', bg: 'from-green-800/50 to-green-900/50', border: 'border-green-700' },
-    { name: 'Yellow', bg: 'from-yellow-800/50 to-yellow-900/50', border: 'border-yellow-700' },
-    { name: 'Red', bg: 'from-red-800/50 to-red-900/50', border: 'border-red-700' },
-];
-
-const MindMapEditor: React.FC<{ data: Note['mindMapData'], onChange: (data: Note['mindMapData']) => void }> = ({ data, onChange }) => {
-    const svgRef = useRef<SVGSVGElement>(null);
-    const [draggingId, setDraggingId] = useState<string | null>(null);
-
-    const safeData = data || { rootId: 'root', nodes: [{ id: 'root', text: 'Central Topic', x: 400, y: 300, children: [] }] };
-
-    const handleMouseDown = (id: string) => {
-        setDraggingId(id);
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (draggingId && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            const newNodes = safeData.nodes.map(n => n.id === draggingId ? { ...n, x, y } : n);
-            onChange({ ...safeData, nodes: newNodes });
-        }
-    };
-
-    const handleMouseUp = () => {
-        setDraggingId(null);
-    };
-    
-    const addNode = (parentId: string) => {
-        const parent = safeData.nodes.find(n => n.id === parentId);
-        if (!parent) return;
-        
-        const newNodeId = Date.now().toString();
-        const newNode: MindMapNode = {
-            id: newNodeId,
-            text: 'New Idea',
-            x: parent.x + 100,
-            y: parent.y + (Math.random() * 100 - 50),
-            children: []
-        };
-        
-        const newNodes = [...safeData.nodes, newNode].map(n => n.id === parentId ? { ...n, children: [...n.children, newNodeId] } : n);
-        onChange({ ...safeData, nodes: newNodes });
-    };
-    
-    const updateText = (id: string, text: string) => {
-        const newNodes = safeData.nodes.map(n => n.id === id ? { ...n, text } : n);
-        onChange({ ...safeData, nodes: newNodes });
-    };
-
-    return (
-        <div className="w-full h-full bg-slate-900 relative overflow-hidden rounded-lg border border-slate-700">
-            <svg 
-                ref={svgRef} 
-                width="100%" 
-                height="100%" 
-                onMouseMove={handleMouseMove} 
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-            >
-                {/* Edges */}
-                {safeData.nodes.map(node => (
-                    node.children.map(childId => {
-                        const child = safeData.nodes.find(n => n.id === childId);
-                        if (!child) return null;
-                        return (
-                            <line 
-                                key={`${node.id}-${child.id}`} 
-                                x1={node.x} y1={node.y} 
-                                x2={child.x} y2={child.y} 
-                                stroke="#5aa1ff" 
-                                strokeWidth="2" 
-                                opacity="0.5"
-                            />
-                        );
-                    })
-                ))}
-                
-                {/* Nodes */}
-                {safeData.nodes.map(node => (
-                    <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
-                        <circle 
-                            r="40" 
-                            fill="#1e293b" 
-                            stroke={node.id === safeData.rootId ? '#ef4444' : '#5aa1ff'} 
-                            strokeWidth="2"
-                            onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(node.id); }}
-                            className="cursor-move"
-                        />
-                        <foreignObject x="-35" y="-15" width="70" height="30">
-                            <input 
-                                value={node.text} 
-                                onChange={(e) => updateText(node.id, e.target.value)}
-                                className="w-full h-full bg-transparent text-center text-xs text-white border-none outline-none"
-                            />
-                        </foreignObject>
-                        <circle 
-                            r="8" cx="35" cy="0" fill="#10b981" className="cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); addNode(node.id); }}
-                        />
-                        <text x="35" y="4" textAnchor="middle" fontSize="10" fill="white" pointerEvents="none">+</text>
-                    </g>
-                ))}
-            </svg>
-            <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                Drag nodes to move. Click green + to add child.
-            </div>
-        </div>
-    );
-};
 
 const NotesManager: React.FC = () => {
-  const { notes, setNotes, setViewingFile } = useAppContext();
-  const [activeNoteId, setActiveNoteId] = useLocalStorage<number | null>('activeNoteId', null);
-  const activeNote = useMemo(() => notes.find(n => n.id === activeNoteId) || null, [notes, activeNoteId]);
-  const [allFiles, setAllFiles] = useState<StoredFile[]>([]);
-  const attachFileRef = useRef<HTMLInputElement>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showBlurting, setShowBlurting] = useState(false);
+    const { notes, setNotes, linkResources, setLinkResources, setViewingFile } = useAppContext();
+    const [dbFiles, setDbFiles] = useState<StoredFile[]>([]);
+    
+    type FilterType = 'all' | 'notes' | 'files' | 'links';
+    const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedResourceId, setSelectedResourceId] = useState<{ id: number, type: UnifiedResource['type'] } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadFileMetadata = async () => {
-      const files = await getFiles();
-      setAllFiles(files);
-  };
+    const loadFiles = useCallback(async () => { setDbFiles(await getFiles()); }, []);
+    useEffect(() => { loadFiles(); }, [loadFiles]);
 
-  useEffect(() => { loadFileMetadata(); }, []);
-  
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-        containerRef.current?.requestFullscreen().catch(err => alert(`Fullscreen error: ${err.message}`));
-    } else {
-        document.exitFullscreen();
-    }
-  };
+    const unifiedResources = useMemo<UnifiedResource[]>(() => {
+        const unifiedNotes: UnifiedResource[] = notes.map(n => ({ ...n, type: 'note', title: n.title || 'Untitled Note' }));
+        const unifiedFiles: UnifiedResource[] = dbFiles.map(f => ({ ...f, type: 'file', title: f.name }));
+        const unifiedLinks: UnifiedResource[] = linkResources.map(l => ({ ...l, title: l.title || l.url }));
+        return [...unifiedNotes, ...unifiedFiles, ...unifiedLinks].sort((a, b) => b.ts - a.ts);
+    }, [notes, dbFiles, linkResources]);
 
-  useEffect(() => {
-    const handler = () => setIsFullScreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
-  }, []);
-
-  const filteredNotes = useMemo(() => {
-    const sorted = [...notes].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0) || b.updatedAt - a.updatedAt);
-    if (!searchTerm.trim()) return sorted;
-    const term = searchTerm.toLowerCase();
-    return sorted.filter(note => 
-      note.title.toLowerCase().includes(term) ||
-      (note.tags && note.tags.join(' ').toLowerCase().includes(term)) ||
-      (note.content && note.content.replace(/<[^>]+>/g, '').toLowerCase().includes(term))
-    );
-  }, [notes, searchTerm]);
-  
-  useEffect(() => {
-    if (activeNoteId === null && filteredNotes.length > 0) {
-      setActiveNoteId(filteredNotes[0].id);
-    }
-    if (activeNoteId !== null && !notes.some(n => n.id === activeNoteId)) {
-      setActiveNoteId(notes.length > 0 ? notes[0].id : null);
-    }
-  }, [notes, activeNoteId, setActiveNoteId, filteredNotes]);
-  
-  const createNote = (template: NoteTemplate = 'standard') => {
-    const newNote: Note = {
-      id: Date.now(),
-      title: template === 'cornell' ? 'Cornell Note' : template === 'mindmap' ? 'Mind Map' : 'New Note',
-      content: '',
-      attachments: [],
-      ts: Date.now(),
-      updatedAt: Date.now(),
-      isPinned: false,
-      color: 'Default',
-      tags: [],
-      template,
-      cornellCues: '',
-      cornellSummary: '',
-      blurtingPrompt: '',
-      blurtingAnswer: '',
-    };
-    setNotes(prev => [newNote, ...prev]);
-    setActiveNoteId(newNote.id);
-  };
-
-  const deleteNote = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this note?')) {
-      setNotes(prev => prev.filter(n => n.id !== id));
-    }
-  };
-
-  const updateNote = (field: keyof Note, value: any) => {
-    if (!activeNoteId) return;
-    setNotes(prev => prev.map(n => 
-        n.id === activeNoteId ? { ...n, [field]: value, updatedAt: Date.now() } : n
-    ));
-  };
-  
-  const handleAttachFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!activeNoteId) return;
-    const file = event.target.files?.[0];
-    if (file) {
-        try {
-            const newFileId = await addFile(file);
-            setNotes(prev => prev.map(n => 
-                n.id === activeNoteId ? { ...n, attachments: [...(n.attachments || []), newFileId] } : n
-            ));
-            loadFileMetadata();
-        } catch (error) { alert("Failed to attach file."); }
-        finally { if (attachFileRef.current) attachFileRef.current.value = ""; }
-    }
-  };
-
-  const handleRemoveAttachment = (fileId: number) => {
-    if (!activeNoteId) return;
-    setNotes(prev => prev.map(n => {
-        if (n.id === activeNoteId) {
-            const updatedAttachments = (n.attachments || []).filter(id => id !== fileId);
-            return { ...n, attachments: updatedAttachments };
-        }
-        return n;
-    }));
-  };
-  
-  const handleViewFile = async (id: number) => {
-    try {
-        const fileData = await getFile(id);
-        if (fileData) setViewingFile(fileData);
-    } catch (error) { alert("Could not open the file."); }
-  };
-  
-  const noteAttachments = useMemo(() => {
-    if (!activeNote || !activeNote.attachments) return [];
-    return allFiles.filter(file => activeNote.attachments.includes(file.id));
-  }, [activeNote, allFiles]);
-  
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const result = e.target?.result as string;
-        try {
-            const data = JSON.parse(result);
-            if (Array.isArray(data)) {
-                setNotes(prev => [...prev, ...data]);
-                alert(`${data.length} notes imported from JSON.`);
+    const { folders, tags } = useMemo(() => {
+        const folderSet = new Set<string>();
+        const tagSet = new Set<string>();
+        unifiedResources.forEach(r => {
+            if(r.folder && r.folder.trim() !== '') folderSet.add(r.folder.trim());
+            r.tags?.forEach(t => {
+                if(t.trim() !== '') tagSet.add(t.trim())
+            });
+        });
+        return { folders: Array.from(folderSet).sort(), tags: Array.from(tagSet).sort() };
+    }, [unifiedResources]);
+    
+    const filteredResources = useMemo(() => {
+        return unifiedResources.filter(res => {
+            const lowerSearch = searchTerm.toLowerCase();
+            if(searchTerm && !res.title.toLowerCase().includes(lowerSearch) && !(res.tags?.join(' ').toLowerCase().includes(lowerSearch))) return false;
+            if(selectedFolder && res.folder !== selectedFolder) return false;
+            if(selectedTag && !(res.tags || []).includes(selectedTag)) return false;
+            if(activeFilter !== 'all') {
+                if (activeFilter === 'notes' && res.type !== 'note') return false;
+                if (activeFilter === 'files' && res.type !== 'file') return false;
+                if (activeFilter === 'links' && res.type !== 'link' && res.type !== 'tool') return false;
             }
-        } catch (error) { alert('Error parsing file.'); }
-        finally { if (importFileRef.current) importFileRef.current.value = ""; }
+            return true;
+        });
+    }, [unifiedResources, searchTerm, selectedFolder, selectedTag, activeFilter]);
+
+    const activeResource = useMemo(() => {
+        if (!selectedResourceId) return null;
+        return unifiedResources.find(r => r.id === selectedResourceId.id && r.type === selectedResourceId.type);
+    }, [selectedResourceId, unifiedResources]);
+    
+    const createNote = () => {
+        const newNote: Note = {
+            id: Date.now(), title: 'New Note', content: '', attachments: [], ts: Date.now(), updatedAt: Date.now(),
+        };
+        setNotes(prev => [newNote, ...prev]);
+        setSelectedResourceId({ id: newNote.id, type: 'note' });
     };
-    reader.readAsText(file);
-  };
 
-  const renderEditor = () => {
-    if (!activeNote) return null;
+    const addLink = () => {
+        const url = prompt("Enter URL:");
+        if (url) {
+            const newLink: LinkResource = { id: Date.now(), ts: Date.now(), title: url, url, type: 'link' };
+            setLinkResources(prev => [newLink, ...prev]);
+            setSelectedResourceId({ id: newLink.id, type: 'link' });
+        }
+    };
+    
+    const handleFilesUpload = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        try {
+            let lastNewId: number | null = null;
+            for (const file of Array.from(files)) {
+                lastNewId = await addFile(file);
+            }
+            await loadFiles();
+            if (lastNewId) {
+                setSelectedResourceId({ id: lastNewId, type: 'file' });
+            }
+        } catch (error) {
+            console.error('File upload failed', error);
+            alert('File upload failed.');
+        }
+    };
 
-    switch (activeNote.template) {
-        case 'mindmap':
-            return (
-                <MindMapEditor 
-                    data={activeNote.mindMapData} 
-                    onChange={(data) => updateNote('mindMapData', data)} 
-                />
-            );
-        case 'cornell':
-            return (
-                <div className="flex flex-col h-full gap-2">
-                    <div className="flex flex-grow gap-2 h-2/3">
-                        <div className="w-1/3 flex flex-col border border-white/10 rounded-lg p-2">
-                            <label className="text-xs text-gray-400 uppercase mb-1">Cues / Questions</label>
-                            <textarea 
-                                className="flex-grow bg-transparent w-full resize-none outline-none text-sm"
-                                value={activeNote.cornellCues} 
-                                onChange={e => updateNote('cornellCues', e.target.value)} 
-                                placeholder="Keywords, questions..." 
-                            />
-                        </div>
-                        <div className="w-2/3 flex flex-col border border-white/10 rounded-lg p-2">
-                            <label className="text-xs text-gray-400 uppercase mb-1">Notes</label>
-                            <RichTextEditor value={activeNote.content} onChange={c => updateNote('content', c)} />
-                        </div>
-                    </div>
-                    <div className="h-1/3 border border-white/10 rounded-lg p-2 flex flex-col">
-                        <label className="text-xs text-gray-400 uppercase mb-1">Summary</label>
-                        <textarea 
-                            className="flex-grow bg-transparent w-full resize-none outline-none text-sm"
-                            value={activeNote.cornellSummary} 
-                            onChange={e => updateNote('cornellSummary', e.target.value)} 
-                            placeholder="Summary of the lecture..." 
-                        />
-                    </div>
-                </div>
-            );
-        case 'blurting':
-            return (
-                <div className="flex flex-col h-full gap-4">
-                    <div className="bg-yellow-500/10 p-2 rounded border border-yellow-500/30 text-xs">
-                        <strong>Blurting Method:</strong> Read the content, hide it, then type everything you remember below.
-                    </div>
-                    <div className="flex-1 flex flex-col">
-                         <div className="flex justify-between items-center mb-1">
-                            <label className="text-xs text-gray-400 uppercase">Original Content</label>
-                            <Button variant="outline" className="text-xs !py-0.5" onClick={() => setShowBlurting(!showBlurting)}>
-                                {showBlurting ? 'Hide Content' : 'Show Content'}
-                            </Button>
-                        </div>
-                        {showBlurting ? (
-                             <RichTextEditor value={activeNote.content} onChange={c => updateNote('content', c)} />
-                        ) : (
-                            <div className="flex-grow bg-black/20 rounded flex items-center justify-center text-gray-500 italic">
-                                Content Hidden. Start blurting below.
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex-1 flex flex-col">
-                        <label className="text-xs text-gray-400 uppercase mb-1">Your Recall (Blurting Area)</label>
-                        <textarea 
-                            className="flex-grow bg-black/20 border border-white/10 rounded p-2 w-full resize-none outline-none"
-                            value={activeNote.blurtingAnswer} 
-                            onChange={e => updateNote('blurtingAnswer', e.target.value)} 
-                            placeholder="Type everything you remember..." 
-                        />
-                    </div>
-                </div>
-            );
-        case 'feynman':
-            return (
-                <div className="flex flex-col h-full gap-4">
-                    <div className="bg-blue-500/10 p-2 rounded border border-blue-500/30 text-xs">
-                        <strong>Feynman Technique:</strong> Explain the concept simply, as if teaching a 5-year-old. Identify gaps.
-                    </div>
-                    <div className="flex-grow flex flex-col">
-                        <RichTextEditor value={activeNote.content} onChange={c => updateNote('content', c)} />
-                    </div>
-                </div>
-            );
-        case 'zettel':
-        case 'standard':
-        default:
-             return <RichTextEditor value={activeNote.content} onChange={c => updateNote('content', c)} />;
+    const updateResource = (id: number, type: UnifiedResource['type'], updates: Partial<UnifiedResource>) => {
+        if (type === 'note') {
+            setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates, updatedAt: Date.now() } as Note : n));
+        } else if (type === 'file') {
+            updateFileMetadata(id, updates).then(loadFiles);
+        } else if (type === 'link' || type === 'tool') {
+            setLinkResources(prev => prev.map(l => l.id === id ? { ...l, ...updates } as LinkResource : l));
+        }
+    };
+    
+    const deleteResource = (id: number, type: UnifiedResource['type']) => {
+        if (!window.confirm("Are you sure?")) return;
+        if (type === 'note') setNotes(prev => prev.filter(n => n.id !== id));
+        if (type === 'file') deleteFile(id).then(loadFiles);
+        if (type === 'link' || type === 'tool') setLinkResources(prev => prev.filter(l => l.id !== id));
+        setSelectedResourceId(null);
     }
-  };
+    
+    if (unifiedResources.length === 0) {
+        return <EmptyState onAction={createNote} />;
+    }
 
-  return (
-    <div ref={containerRef} className={`bg-gradient-to-b from-[rgba(255,255,255,0.01)] to-[rgba(255,255,255,0.02)] p-4 rounded-xl ${isFullScreen ? 'h-screen w-screen overflow-y-auto' : ''}`}>
-        <div className="flex justify-between items-center mb-4">
-          <CardHeader title="Notes & Knowledge Base" subtitle="Cornell, Zettelkasten, Mind Maps" />
-          <div className="flex gap-2">
-               <select className="bg-black/30 border border-white/10 rounded text-xs p-1" onChange={e => createNote(e.target.value as any)} value="">
-                   <option value="" disabled>+ New Note Type</option>
-                   <option value="standard">Standard Note</option>
-                   <option value="cornell">Cornell Note</option>
-                   <option value="mindmap">Mind Map</option>
-                   <option value="blurting">Blurting Session</option>
-                   <option value="feynman">Feynman Technique</option>
-               </select>
-               <Button variant="outline" onClick={toggleFullScreen}>{isFullScreen ? 'Exit Full' : 'Full'}</Button>
-          </div>
-        </div>
-
-        <div className={`flex flex-col md:flex-row gap-4 ${isFullScreen ? 'h-[calc(100vh-6rem)]' : 'h-[36rem]'}`}>
-            <div className="w-full md:w-1/4 border-r border-[var(--card-border-color)] pr-4 flex flex-col">
-              <div className="relative mb-2">
-                <Input type="search" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!p-1 text-sm"/>
-              </div>
-              <div className="space-y-1 overflow-y-auto flex-grow pr-1">
-                {filteredNotes.map(note => (
-                  <div
-                    key={note.id}
-                    onClick={() => setActiveNoteId(note.id)}
-                    className={`p-2 rounded cursor-pointer border-l-2 transition-colors ${activeNoteId === note.id ? 'bg-[var(--accent-color)]/10 border-[var(--accent-color)]' : 'hover:bg-white/5 border-transparent'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                        <h4 className="font-semibold truncate text-xs text-[var(--text-color-accent)]">{note.title}</h4>
-                        <span className="text-[10px] opacity-50 uppercase">{note.template === 'standard' ? '' : note.template}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="w-full md:w-3/4 flex flex-col">
-              {activeNote ? (
-                <>
-                    <div className="flex gap-2 mb-2">
-                         <Input 
-                            value={activeNote.title}
-                            onChange={(e) => updateNote('title', e.target.value)}
-                            className="text-lg font-bold flex-grow"
-                        />
-                         <Button variant="outline" className="text-xs text-red-400" onClick={() => deleteNote(activeNote.id)}>Del</Button>
-                    </div>
-                    <div className="flex-grow min-h-0 border border-white/5 rounded-lg p-2 bg-black/10">
-                        {renderEditor()}
-                    </div>
-                    
-                    <div className="mt-2 pt-2 border-t border-[var(--card-border-color)] flex flex-wrap gap-2 items-center justify-between">
-                         <div className="flex items-center gap-2">
-                             <span className="text-xs text-gray-400">Tags:</span>
-                             <Input 
-                                value={activeNote.tags?.join(', ') || ''}
-                                onChange={(e) => updateNote('tags', e.target.value.split(',').map(t=>t.trim()).filter(Boolean))}
-                                placeholder="tag1, tag2"
-                                className="!p-1 text-xs w-40"
-                            />
-                            <Button variant="outline" className="text-xs !p-1" onClick={() => attachFileRef.current?.click()}>📎 Attach</Button>
-                            <input type="file" ref={attachFileRef} onChange={handleAttachFile} className="hidden" />
-                         </div>
-                         <div className="flex gap-1 text-xs">
-                             {noteAttachments.map(f => (
-                                 <span key={f.id} className="bg-white/10 px-2 py-1 rounded flex items-center gap-1">
-                                     {f.name} 
-                                     <button onClick={() => handleViewFile(f.id)}>👁️</button>
-                                     <button onClick={() => handleRemoveAttachment(f.id)}>×</button>
-                                 </span>
-                             ))}
-                         </div>
-                    </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center text-[var(--text-color-dim)]">
-                  <p>Select or create a note to begin.</p>
+    return (
+        <div className="flex h-[80vh]">
+            {/* Sidebar */}
+            <div className="w-64 flex-shrink-0 border-r border-[var(--border-color)] p-2 flex flex-col">
+                <div className="flex gap-2 mb-2">
+                    <Button onClick={createNote} className="flex-1">New Note</Button>
+                    <Button onClick={addLink} className="flex-1">Add Link</Button>
                 </div>
-              )}
+                 <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="w-full mb-4">Upload File</Button>
+                 <input type="file" ref={fileInputRef} onChange={(e) => handleFilesUpload(e.target.files)} className="hidden" multiple />
+
+                <nav className="space-y-1 text-sm">
+                    {(['all', 'notes', 'files', 'links'] as FilterType[]).map(f => (
+                        <button key={f} onClick={() => { setActiveFilter(f); setSelectedFolder(null); setSelectedTag(null); }} className={`w-full text-left p-2 rounded flex items-center gap-2 ${activeFilter === f && !selectedFolder && !selectedTag ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
+                           {f === 'all' ? '🗂️' : f === 'notes' ? <NoteIcon/> : f === 'files' ? <FileIcon/> : <LinkIcon/>} <span className="capitalize">{f}</span>
+                        </button>
+                    ))}
+                </nav>
+                 <div className="mt-4 pt-4 border-t border-[var(--border-color)] overflow-y-auto">
+                    <h4 className="px-2 mb-1 text-xs font-semibold uppercase text-gray-500 flex items-center gap-2"><FolderIcon /> Folders</h4>
+                     {folders.map(f => (
+                        <button key={f} onClick={() => { setSelectedFolder(f); setSelectedTag(null); }} className={`w-full text-left p-2 rounded text-sm flex items-center gap-2 truncate ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
+                            {f}
+                        </button>
+                     ))}
+                     <h4 className="px-2 mt-4 mb-1 text-xs font-semibold uppercase text-gray-500 flex items-center gap-2"><TagIcon /> Tags</h4>
+                      {tags.map(t => (
+                        <button key={t} onClick={() => { setSelectedTag(t); setSelectedFolder(null); }} className={`w-full text-left p-2 rounded text-sm flex items-center gap-2 truncate ${selectedTag === t ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
+                           #{t}
+                        </button>
+                     ))}
+                 </div>
             </div>
-          </div>
-    </div>
-  );
+            
+            <DropZone onDrop={handleFilesUpload} className="flex-grow flex min-w-0">
+                {/* Item List */}
+                <div className="w-80 flex-shrink-0 border-r border-[var(--border-color)] p-2 flex flex-col">
+                    <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="mb-2"/>
+                    <div className="overflow-y-auto space-y-1">
+                        {filteredResources.map(res => (
+                            <div key={`${res.type}-${res.id}`} onClick={() => setSelectedResourceId({id: res.id, type: res.type})} className={`p-2 rounded-lg cursor-pointer ${selectedResourceId?.id === res.id && selectedResourceId?.type === res.type ? 'bg-[var(--grad-1)]/20' : 'hover:bg-white/5'}`}>
+                                <div className="flex items-start gap-2">
+                                    <span className="mt-1 text-gray-500">{getResourceIcon(res.type, res.mimeType)}</span>
+                                    <div className="flex-grow min-w-0">
+                                        <p className="font-semibold truncate">{res.title}</p>
+                                        <p className="text-xs text-gray-400">
+                                            {new Date(res.ts).toLocaleDateString()}
+                                            {res.folder && ` • ${res.folder}`}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Editor/Viewer */}
+                <div className="flex-grow p-4 flex flex-col">
+                    {activeResource ? (
+                        <>
+                            <div className="flex justify-between items-start mb-2">
+                                <Input value={activeResource.title} onChange={e => updateResource(activeResource.id, activeResource.type, { title: e.target.value })} className="text-xl font-bold !p-1 !border-0"/>
+                                <Button variant="glass" className="text-red-400 border-red-500/50 hover:bg-red-500/10 text-xs" onClick={() => deleteResource(activeResource.id, activeResource.type)}>Delete</Button>
+                            </div>
+                            {activeResource.type === 'note' && (
+                                <div className="flex-grow min-h-0">
+                                    <RichTextEditor value={activeResource.content || ''} onChange={content => updateResource(activeResource.id, 'note', { content })} />
+                                </div>
+                            )}
+                            {(activeResource.type === 'link' || activeResource.type === 'tool') && (
+                                <div className="space-y-2">
+                                    <Input value={activeResource.url || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { url: e.target.value })} />
+                                    <textarea value={activeResource.description || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { description: e.target.value })} placeholder="Description..." rows={4} className="glass-textarea w-full text-sm" />
+                                </div>
+                            )}
+                            {activeResource.type === 'file' && (
+                                 <div className="space-y-2 text-sm text-gray-300">
+                                    <p><strong>Type:</strong> {activeResource.mimeType}</p>
+                                    <p><strong>Size:</strong> {activeResource.size ? (activeResource.size / 1024).toFixed(2) : 0} KB</p>
+                                    <Button onClick={async () => setViewingFile(await getFile(activeResource.id))}>View File</Button>
+                                </div>
+                            )}
+                             <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                                 <h5 className="text-sm font-semibold mb-2">Metadata</h5>
+                                  <div className="flex gap-4">
+                                    <div>
+                                        <label className="text-xs text-gray-400">Folder</label>
+                                        <Input value={activeResource.folder || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { folder: e.target.value })} placeholder="e.g., UNI" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400">Tags (comma-separated)</label>
+                                        <Input value={(activeResource.tags || []).join(', ')} onChange={e => updateResource(activeResource.id, activeResource.type, { tags: e.target.value.split(',').map(t=>t.trim()).filter(Boolean) })} placeholder="e.g., important, to-read" />
+                                    </div>
+                                  </div>
+                             </div>
+                        </>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500">Select an item to view</div>
+                    )}
+                </div>
+            </DropZone>
+        </div>
+    );
 };
 
 export default NotesManager;

@@ -1,14 +1,9 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Task, TaskPriority, TaskStatus } from '../../types';
-
-const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({title, subtitle}) => (
-  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
-    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
-  </h3>
-);
 
 const PRIORITY_STYLES: Record<TaskPriority, string> = {
     'Urgent': 'bg-red-500',
@@ -19,22 +14,38 @@ const PRIORITY_STYLES: Record<TaskPriority, string> = {
 };
 
 const KANBAN_COLUMNS: TaskStatus[] = ['Backlog', 'In Progress', 'Review', 'Done'];
+const PRIORITY_ORDER: Record<Task['priority'], number> = {
+    'Urgent': 5, 'High': 4, 'Medium': 3, 'Low': 2, 'None': 1,
+};
 
 const TaskItem: React.FC<{ task: Task; isSelected: boolean; onSelect: (id: number) => void; onEdit: (task: Task) => void; }> = ({ task, isSelected, onSelect, onEdit }) => {
+    const completedSubtasks = task.subtasks.filter(st => st.completed).length;
+    const totalSubtasks = task.subtasks.length;
+
     return (
         <div 
-            className={`flex items-center gap-3 p-2 rounded-lg border border-dashed transition-colors ${isSelected ? 'bg-[var(--accent-color)]/20 border-[var(--accent-color)]/50' : 'border-[rgba(255,255,255,0.02)] hover:bg-white/5'}`}
+            className={`flex items-center gap-3 p-2 rounded-lg border border-dashed transition-colors ${isSelected ? 'bg-[var(--grad-1)]/20 border-[var(--grad-1)]/50' : 'border-transparent hover:bg-white/5'}`}
             onClick={() => onSelect(task.id)}
         >
             <input 
                 type="checkbox" 
                 checked={isSelected}
                 onChange={() => onSelect(task.id)}
-                className="form-checkbox h-4 w-4 rounded bg-transparent border-gray-600 text-[var(--accent-color)] focus:ring-0 cursor-pointer flex-shrink-0"
+                className="form-checkbox h-4 w-4 rounded bg-transparent border-border-color text-[var(--grad-1)] focus:ring-0 cursor-pointer flex-shrink-0"
                 aria-label={`Select task: ${task.title}`}
             />
-            <div className="flex-grow truncate cursor-pointer" onClick={(e) => { e.stopPropagation(); onEdit(task); }}>
-                <span className={task.status === 'Done' ? 'line-through text-gray-500' : ''}>{task.title}</span>
+            <div className="flex-grow min-w-0 cursor-pointer flex flex-col justify-center" onClick={(e) => { e.stopPropagation(); onEdit(task); }}>
+                <div className="flex items-center gap-2">
+                   <span className={`truncate ${task.status === 'Done' ? 'line-through text-gray-400' : ''}`}>{task.title}</span>
+                </div>
+                {totalSubtasks > 0 && (
+                    <div className="flex items-center gap-2 mt-1">
+                        <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
+                             <div className="h-full bg-[var(--grad-1)]" style={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }} />
+                        </div>
+                        <span className="text-[9px] text-gray-500">{completedSubtasks}/{totalSubtasks}</span>
+                    </div>
+                )}
             </div>
             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${PRIORITY_STYLES[task.priority]}`} title={`Priority: ${task.priority}`}></div>
         </div>
@@ -42,7 +53,7 @@ const TaskItem: React.FC<{ task: Task; isSelected: boolean; onSelect: (id: numbe
 };
 
 const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
-    const { tasks, setTasks, setViewingTask } = useAppContext();
+    const { tasks, setTasks, setViewingTask, setEngagementLogs } = useAppContext();
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
     const [dropIndicator, setDropIndicator] = useState<{ status: TaskStatus; index: number } | null>(null);
 
@@ -58,8 +69,16 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
 
     const tasksByStatus = useMemo(() => {
         const grouped: Record<TaskStatus, Task[]> = { Backlog: [], 'In Progress': [], Review: [], Done: [] };
-        // This relies on the original `tasks` array order for within-column sorting
-        tasks.forEach(task => { (grouped[task.status] = grouped[task.status] || []).push(task); });
+        const sortedTasks = [...tasks].sort((a, b) => {
+            const priorityDiff = (PRIORITY_ORDER[b.priority] || 1) - (PRIORITY_ORDER[a.priority] || 1);
+            if (priorityDiff !== 0) return priorityDiff;
+            return b.updatedAt - a.updatedAt;
+        });
+        sortedTasks.forEach(task => {
+            if (grouped[task.status]) {
+                grouped[task.status].push(task);
+            }
+        });
         return grouped;
     }, [tasks]);
 
@@ -77,57 +96,34 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
 
     const handleDragOverColumn = (e: React.DragEvent<HTMLDivElement>, status: TaskStatus) => {
         e.preventDefault();
-        if (tasksByStatus[status].length === 0) {
-            setDropIndicator({ status, index: 0 });
-        }
+        setDropIndicator({ status, index: -1 });
     };
 
-    const handleDragOverTask = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
+    const handleTaskDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
-        if (draggedTaskId === task.id) return;
-
-        const rect = e.currentTarget.getBoundingClientRect();
-        const middleY = rect.top + rect.height / 2;
-        const isAfter = e.clientY > middleY;
-        const taskIndex = tasksByStatus[task.status].findIndex(t => t.id === task.id);
-        
-        setDropIndicator({
-            status: task.status,
-            index: isAfter ? taskIndex + 1 : taskIndex,
-        });
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetStatus: TaskStatus) => {
         e.preventDefault();
         e.stopPropagation();
         const taskId = parseInt(e.dataTransfer.getData('taskId'), 10);
-        if (!taskId) return;
-        
-        const targetIndex = dropIndicator?.status === targetStatus ? dropIndicator.index : tasksByStatus[targetStatus].length;
-        
-        setTasks(currentTasks => {
-            const taskToMove = currentTasks.find(t => t.id === taskId);
-            if (!taskToMove) return currentTasks;
+        if (!taskId || !draggedTaskId) return;
 
-            const tasksWithoutMoved = currentTasks.filter(t => t.id !== taskId);
-            const updatedTask = { ...taskToMove, status: targetStatus, updatedAt: Date.now() };
+        const taskToMove = tasks.find(t => t.id === taskId);
+        if (taskToMove && targetStatus === 'Done' && taskToMove.status !== 'Done') {
+            setEngagementLogs(prev => [...prev, {
+                ts: Date.now(),
+                activity: 'complete_task',
+                details: { id: taskToMove.id, name: taskToMove.title }
+            }]);
+        }
 
-            const tasksInTargetColumn = tasksWithoutMoved.filter(t => t.status === targetStatus);
-            
-            if (targetIndex >= tasksInTargetColumn.length) {
-                // Find last task in column to insert after
-                const lastTask = tasksInTargetColumn[tasksInTargetColumn.length - 1];
-                const insertionPoint = lastTask ? tasksWithoutMoved.findIndex(t => t.id === lastTask.id) + 1 : tasksWithoutMoved.length;
-                tasksWithoutMoved.splice(insertionPoint, 0, updatedTask);
-            } else {
-                const taskToInsertBefore = tasksInTargetColumn[targetIndex];
-                const absoluteIndex = tasksWithoutMoved.findIndex(t => t.id === taskToInsertBefore.id);
-                tasksWithoutMoved.splice(absoluteIndex, 0, updatedTask);
-            }
-            return tasksWithoutMoved;
-        });
-
+        setTasks(prev => prev.map(task =>
+            task.id === taskId
+                ? { ...task, status: targetStatus, updatedAt: Date.now() }
+                : task
+        ));
         setDropIndicator(null);
     };
 
@@ -141,9 +137,18 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
             setTasks(prev => [newTask, ...prev]);
         }
     };
+
+    const getPriorityColor = (priority: TaskPriority) => {
+         switch(priority) {
+            case 'Urgent': return '#ef4444';
+            case 'High': return '#3b82f6';
+            case 'Medium': return '#eab308';
+            default: return 'transparent';
+        }
+    };
     
     return (
-        <div className="fixed inset-0 bg-[var(--bg-gradient-end)] z-50 p-4 flex flex-col">
+        <div className="fixed inset-0 bg-[var(--bg-offset)] z-50 p-4 flex flex-col">
             <header className="flex justify-between items-center mb-4 flex-shrink-0">
                 <h2 className="text-xl font-bold text-white">Task Focus Mode</h2>
                 <Button onClick={onClose}>Close (Esc)</Button>
@@ -153,30 +158,45 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
                     <div 
                         key={status} 
                         onDragOver={(e) => handleDragOverColumn(e, status)} 
-                        onDragLeave={() => {}}
+                        onDragLeave={() => setDropIndicator(null)}
                         onDrop={(e) => handleDrop(e, status)} 
                         className={`bg-black/20 p-2 rounded-lg flex flex-col transition-all duration-200 ${dropIndicator?.status === status ? 'kanban-column-over' : ''}`}
                     >
                         <h3 className="font-semibold p-2">{status} <span className="text-gray-400">({tasksByStatus[status].length})</span></h3>
                         <div className="space-y-2 overflow-y-auto flex-grow">
-                            {tasksByStatus[status].map((task, index) => (
-                                <React.Fragment key={task.id}>
-                                    {dropIndicator?.status === status && dropIndicator?.index === index && <div className="drop-placeholder" />}
+                            {tasksByStatus[status].map((task) => {
+                                const completed = task.subtasks.filter(s => s.completed).length;
+                                const total = task.subtasks.length;
+                                return (
                                     <div 
+                                        key={task.id}
                                         draggable 
                                         onDragStart={(e) => handleDragStart(e, task.id)}
                                         onDragEnd={handleDragEnd}
-                                        onDragOver={(e) => handleDragOverTask(e, task)}
+                                        onDragOver={handleTaskDragOver}
                                         onClick={() => setViewingTask(task)} 
-                                        className="p-2.5 bg-gray-800/50 rounded-lg cursor-pointer hover:bg-gray-700/50"
+                                        className="p-3 bg-gray-800/50 rounded-lg cursor-pointer hover:bg-gray-700/50 border-l-4 shadow-sm"
+                                        style={{ borderLeftColor: getPriorityColor(task.priority) }}
                                     >
-                                        <p>{task.title}</p>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <p className="font-medium text-sm text-gray-200 line-clamp-2">{task.title}</p>
+                                        </div>
+                                        <div className="flex justify-between items-center mt-2">
+                                            {total > 0 ? (
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-1.5 py-0.5 rounded">
+                                                    <div className="w-8 h-1 bg-gray-600 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-gray-400" style={{ width: `${(completed/total)*100}%` }}></div>
+                                                    </div>
+                                                    <span className="text-[9px] text-gray-400 font-mono">{completed}/{total}</span>
+                                                </div>
+                                            ) : <div/>}
+                                            {task.priority !== 'None' && <span className="text-[10px] text-gray-500 uppercase font-bold">{task.priority}</span>}
+                                        </div>
                                     </div>
-                                </React.Fragment>
-                            ))}
-                            {dropIndicator?.status === status && dropIndicator?.index === tasksByStatus[status].length && <div className="drop-placeholder" />}
+                                );
+                            })}
                         </div>
-                        <Button variant="outline" className="mt-2 w-full text-xs" onClick={() => handleAddTask(status)}>+ Add Task</Button>
+                        <Button variant="glass" className="mt-2 w-full text-xs" onClick={() => handleAddTask(status)}>+ Add Task</Button>
                     </div>
                 ))}
             </main>
@@ -254,11 +274,11 @@ const TasksWidget: React.FC = () => {
 
     return (
         <>
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full p-4">
                 <div className="flex-shrink-0">
-                    <div className="flex justify-between items-start">
-                        <CardHeader title="Today's Tasks" subtitle={`Due ${todayStr}`} />
-                        <Button variant="outline" className="text-xs" onClick={toggleFullScreen}>Focus (F)</Button>
+                    <div className="flex justify-between items-start mb-2">
+                        <small className="text-gray-400 font-normal">Due {todayStr}</small>
+                        <Button variant="glass" className="text-xs" onClick={toggleFullScreen}>Focus (F)</Button>
                     </div>
                     <div className="flex gap-2 mb-2">
                         <Input 
@@ -271,10 +291,10 @@ const TasksWidget: React.FC = () => {
                     </div>
                     
                     {selectedTaskIds.size > 0 && (
-                        <div className="flex gap-2 mb-2 p-2 bg-[var(--accent-color)]/10 rounded-lg">
+                        <div className="flex gap-2 mb-2 p-2 bg-[var(--grad-1)]/10 rounded-lg">
                             <span className="text-sm my-auto">{selectedTaskIds.size} selected</span>
-                            <Button variant="outline" className="text-xs" onClick={() => handleBulkAction('complete')}>Mark Done</Button>
-                            <Button variant="outline" className="text-xs text-red-400 border-red-500/50 hover:bg-red-500/10" onClick={() => handleBulkAction('delete')}>Delete</Button>
+                            <Button variant="glass" className="text-xs" onClick={() => handleBulkAction('complete')}>Mark Done</Button>
+                            <Button variant="glass" className="text-xs text-red-400 border-red-500/50 hover:bg-red-500/10" onClick={() => handleBulkAction('delete')}>Delete</Button>
                         </div>
                     )}
                 </div>
@@ -282,7 +302,7 @@ const TasksWidget: React.FC = () => {
                 <div className="flex-grow min-h-0 space-y-2 overflow-y-auto pr-2">
                     {todaysTasks.length === 0 ? (
                         <div className="h-full flex items-center justify-center">
-                            <div className="text-center text-[#9fb3cf]">No tasks due today.</div>
+                            <div className="text-center text-gray-400">No tasks due today.</div>
                         </div>
                     ) : (
                         todaysTasks.map((task) => (

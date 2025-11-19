@@ -5,12 +5,6 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { addFile, getFile } from '../../utils/db';
 
-const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
-  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
-    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
-  </h3>
-);
-
 const WheelEditorModal: React.FC<{
     wheel: Partial<CustomWheel>;
     onSave: (wheel: CustomWheel) => void;
@@ -56,7 +50,7 @@ const WheelEditorModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[var(--accent-color)]/20 rounded-xl shadow-2xl w-full max-w-lg h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-b from-bg-offset to-bg border border-[var(--grad-1)]/20 rounded-xl shadow-2xl w-full max-w-lg h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <header className="p-3 border-b border-white/10 flex justify-between items-center">
                     <h4 className="font-semibold text-lg">{wheel.id ? 'Edit Wheel' : 'Create New Wheel'}</h4>
                     {wheel.id && <Button variant="outline" className="text-red-400 border-red-500/50 hover:bg-red-500/10 text-xs" onClick={() => onDelete(wheel.id!)}>Delete Wheel</Button>}
@@ -80,9 +74,9 @@ const WheelEditorModal: React.FC<{
                     <div className="p-3 border border-dashed border-white/10 rounded-lg space-y-2">
                         <h5 className="font-semibold text-sm">Add New Option</h5>
                         <Input value={newOption.label} onChange={e => setNewOption(p => ({ ...p, label: e.target.value }))} placeholder="Option Label (e.g., Mystery Prize)" />
-                        <select value={newOption.type} onChange={e => setNewOption(p => ({ ...p, type: e.target.value, value: '' }))} className="bg-transparent border border-[var(--input-border-color)] rounded-lg p-2 w-full text-sm">
-                            <option value="text" className="bg-[var(--option-bg-color)]">Text Prize</option>
-                            <option value="file" className="bg-[var(--option-bg-color)]">File Prize (Image, PDF, etc.)</option>
+                        <select value={newOption.type} onChange={e => setNewOption(p => ({ ...p, type: e.target.value, value: '' }))} className="glass-select">
+                            <option value="text">Text Prize</option>
+                            <option value="file">File Prize (Image, PDF, etc.)</option>
                         </select>
                         {newOption.type === 'text' ? (
                             <Input value={newOption.value as string} onChange={e => setNewOption(p => ({ ...p, value: e.target.value }))} placeholder="Enter text prize..." />
@@ -168,8 +162,8 @@ const GamificationWidget: React.FC = () => {
 
     const ResultModal = () => (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setResult(null)}>
-            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[var(--accent-color)]/20 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center text-center p-6" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-[var(--accent-color)] mb-2">You got: {result?.label}!</h2>
+            <div className="bg-gradient-to-b from-bg-offset to-bg border border-[var(--grad-1)]/20 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center text-center p-6" onClick={(e) => e.stopPropagation()}>
+                <h2 className="text-2xl font-bold text-[var(--grad-1)] mb-2">You got: {result?.label}!</h2>
                 {result?.type === 'text' && <p className="text-lg mb-6">{result.value}</p>}
                 {result?.type === 'file' ? <Button onClick={handleViewFile}>View File</Button> : <Button onClick={() => setResult(null)}>Awesome!</Button>}
             </div>
@@ -187,9 +181,9 @@ const GamificationWidget: React.FC = () => {
             {isEditing && editingWheel && <WheelEditorModal wheel={editingWheel} onSave={handleSaveWheel} onClose={() => setIsEditing(false)} onDelete={handleDeleteWheel} />}
             
             <div className="flex justify-between items-center w-full">
-                <select value={selectedWheelId || ''} onChange={e => setSelectedWheelId(Number(e.target.value))} className="bg-transparent border border-[var(--input-border-color)] text-sm rounded-lg p-2 flex-grow">
+                <select value={selectedWheelId || ''} onChange={e => setSelectedWheelId(Number(e.target.value))} className="glass-select text-sm flex-grow">
                      {customWheels.length === 0 && <option>No wheels configured</option>}
-                    {customWheels.map(wheel => <option key={wheel.id} value={wheel.id} className="bg-[var(--option-bg-color)]">{wheel.name}</option>)}
+                    {customWheels.map(wheel => <option key={wheel.id} value={wheel.id}>{wheel.name}</option>)}
                 </select>
                 <div className="flex gap-2 ml-2">
                     <Button variant="outline" className="!p-2" onClick={() => { setEditingWheel(selectedWheel || {}); setIsEditing(true); }}>⚙️</Button>
@@ -233,7 +227,7 @@ const GamificationWidget: React.FC = () => {
                         );
                     })}
 
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-[#071023] rounded-full border-4 border-white/80 shadow-inner z-10" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-bg rounded-full border-4 border-white/80 shadow-inner z-10" />
                 </div>
             </div>
 

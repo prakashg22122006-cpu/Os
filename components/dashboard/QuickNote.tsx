@@ -1,15 +1,10 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Note } from '../../types';
-
-const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({title, subtitle}) => (
-  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
-    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
-  </h3>
-);
 
 const NOTE_COLORS = [
     { name: 'Default', bg: 'from-slate-800/50 to-slate-900/50', border: 'border-slate-700' },
@@ -33,6 +28,8 @@ const NoteEditorModal: React.FC<{ note: Partial<Note> | null; onSave: (note: Omi
     
     const selectedColorStyle = NOTE_COLORS.find(c => c.name === color) || NOTE_COLORS[0];
 
+    // FIX: The return statement of NoteEditorModal was malformed due to a copy-paste error.
+    // It has been replaced with the correct JSX structure.
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div className={`bg-gradient-to-b ${selectedColorStyle.bg} border ${selectedColorStyle.border} rounded-xl shadow-2xl w-full max-w-lg flex flex-col`} onClick={(e) => e.stopPropagation()}>
@@ -45,7 +42,7 @@ const NoteEditorModal: React.FC<{ note: Partial<Note> | null; onSave: (note: Omi
                         onChange={(e) => setContent(e.target.value)}
                         rows={8}
                         placeholder="Start typing..."
-                        className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-lg w-full box-border placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#5aa1ff]"
+                        className="bg-transparent border border-border-color text-gray-400 p-2 rounded-lg w-full box-border placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[var(--grad-1)]"
                     />
                     <div className="flex items-center gap-4">
                         <Input value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (optional)" className="flex-grow"/>
@@ -58,7 +55,7 @@ const NoteEditorModal: React.FC<{ note: Partial<Note> | null; onSave: (note: Omi
                     </div>
                 </main>
                 <footer className="p-3 flex gap-2 justify-end border-t border-white/10">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button variant="glass" onClick={onClose}>Cancel</Button>
                     <Button onClick={handleSave}>Save Note</Button>
                 </footer>
             </div>
@@ -127,12 +124,11 @@ const QuickNote: React.FC = () => {
   }
 
   return (
-    <div className="relative flex flex-col h-full">
-      <CardHeader title="Quick Notes" />
+    <div className="relative flex flex-col h-full p-4">
        <div className="flex-grow min-h-0 overflow-y-auto pr-2">
         {sortedNotes.length === 0 ? (
           <div className="h-full flex items-center justify-center">
-            <p className="text-[#9fb3cf] text-center">No notes yet. Add one!</p>
+            <p className="text-gray-400 text-center">No notes yet. Add one!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -146,11 +142,11 @@ const QuickNote: React.FC = () => {
                       <p className="text-sm text-gray-200 line-clamp-3">{note.content}</p>
                   </div>
                   <div className="flex gap-1 items-center mt-3 pt-2 border-t border-white/10">
-                      <Button variant="outline" className="text-xs !p-1.5" onClick={() => togglePin(note.id)} title={note.isPinned ? 'Unpin' : 'Pin'}>
+                      <Button variant="glass" className="text-xs !p-1.5" onClick={() => togglePin(note.id)} title={note.isPinned ? 'Unpin' : 'Pin'}>
                           {note.isPinned ? '📌' : '📍'}
                       </Button>
-                      <Button variant="outline" className="text-xs !p-1.5" onClick={() => openEditor(note)}>Edit</Button>
-                      <Button variant="outline" className="text-xs !p-1.5 ml-auto" onClick={() => deleteNote(note.id)}>Del</Button>
+                      <Button variant="glass" className="text-xs !p-1.5" onClick={() => openEditor(note)}>Edit</Button>
+                      <Button variant="glass" className="text-xs !p-1.5 ml-auto" onClick={() => deleteNote(note.id)}>Del</Button>
                   </div>
                 </div>
               );

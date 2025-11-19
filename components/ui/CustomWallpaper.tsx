@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { WallpaperConfig } from '../../types';
 import { getFile } from '../../utils/db';
@@ -130,7 +131,7 @@ const LiveWallpaper: React.FC<{ config?: WallpaperConfig['liveConfig'] }> = ({ c
             window.removeEventListener('resize', resizeCanvas);
             cancelAnimationFrame(animationFrameId);
         };
-    }, [config, backgroundImage]);
+    }, [config?.particleDensity, config?.particleOpacity, backgroundImage]);
 
     return <canvas ref={canvasRef} className="custom-wallpaper-live" />;
 };

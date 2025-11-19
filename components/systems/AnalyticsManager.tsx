@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Semester, Course, EngagementLog } from '../../types';
@@ -7,8 +6,8 @@ import Card from '../ui/Card';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
-    <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
-        {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+    <h3 className="m-0 mb-2 text-sm font-bold text-text">
+        {title} {subtitle && <small className="text-text-dim font-normal ml-1">{subtitle}</small>}
     </h3>
 );
 
@@ -66,17 +65,17 @@ const OverviewTab: React.FC = () => {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="text-center">
+            <Card className="text-center p-4">
                 <h4 className="text-sm font-semibold text-gray-400">Overall GPA</h4>
-                <p className="text-4xl font-bold text-[var(--accent-color)]">{stats.gpa.toFixed(2)}</p>
+                <p className="text-4xl font-bold text-[var(--grad-1)]">{stats.gpa.toFixed(2)}</p>
             </Card>
-            <Card className="text-center">
+            <Card className="text-center p-4">
                 <h4 className="text-sm font-semibold text-gray-400">Attendance</h4>
-                <p className="text-4xl font-bold text-[var(--accent-color)]">{stats.attendancePercentage.toFixed(0)}%</p>
+                <p className="text-4xl font-bold text-[var(--grad-1)]">{stats.attendancePercentage.toFixed(0)}%</p>
             </Card>
-            <Card className="text-center">
+            <Card className="text-center p-4">
                 <h4 className="text-sm font-semibold text-gray-400">Average Grade</h4>
-                <p className="text-4xl font-bold text-[var(--accent-color)]">{stats.averageGrade > 0 ? `${stats.averageGrade.toFixed(1)}%` : 'N/A'}</p>
+                <p className="text-4xl font-bold text-[var(--grad-1)]">{stats.averageGrade > 0 ? `${stats.averageGrade.toFixed(1)}%` : 'N/A'}</p>
             </Card>
         </div>
     );
@@ -126,19 +125,19 @@ const AttendanceTab: React.FC = () => {
 
     return (
         <div>
-            <select onChange={e => setSelectedSemester(e.target.value)} className="bg-transparent border border-[var(--input-border-color)] p-2 rounded-lg mb-4">
-                <option value="all" className="bg-[#0b1626]">All Semesters</option>
-                {semesters.map(s => <option key={s.name} value={s.name} className="bg-[#0b1626]">{s.name}</option>)}
+            <select onChange={e => setSelectedSemester(e.target.value)} className="glass-select mb-4">
+                <option value="all">All Semesters</option>
+                {semesters.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
             </select>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <h4 className="font-semibold mb-2">Attendance Trend (%)</h4>
                     <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={attendanceData.lineData}>
-                            <XAxis dataKey="date" fontSize={10} />
-                            <YAxis domain={[0, 100]} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="percentage" stroke="var(--accent-color)" strokeWidth={2} dot={false} />
+                            <XAxis dataKey="date" fontSize={10} stroke="var(--text-dim)" />
+                            <YAxis domain={[0, 100]} stroke="var(--text-dim)"/>
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--bg-offset)', border: '1px solid var(--border-color)' }}/>
+                            <Line type="monotone" dataKey="percentage" stroke="var(--grad-1)" strokeWidth={2} dot={false} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
@@ -146,10 +145,10 @@ const AttendanceTab: React.FC = () => {
                     <h4 className="font-semibold mb-2">Overall Attendance</h4>
                     <ResponsiveContainer width="100%" height={300}>
                          <PieChart>
-                            <Pie data={attendanceData.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                            <Pie data={attendanceData.pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                                 {attendanceData.pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                             </Pie>
-                            <Tooltip />
+                             <Tooltip contentStyle={{ backgroundColor: 'var(--bg-offset)', border: '1px solid var(--border-color)' }}/>
                             <Legend />
                         </PieChart>
                     </ResponsiveContainer>
@@ -159,137 +158,56 @@ const AttendanceTab: React.FC = () => {
     );
 };
 
-const GradesTab: React.FC = () => {
-    const { semesters } = useAppContext();
-    const [selectedSemester, setSelectedSemester] = useState<string>(semesters[0]?.name || '');
-    
-    const allCourses = useMemo(() => semesters.flatMap(s => s.courses), [semesters]);
+const EngagementTab: React.FC = () => {
+    const { engagementLogs } = useAppContext();
+    const engagementData = useMemo(() => {
+        const activityCounts = new Map<EngagementLog['activity'], number>();
+        engagementLogs.forEach(log => {
+            activityCounts.set(log.activity, (activityCounts.get(log.activity) || 0) + 1);
+        });
 
-    const gradeData = useMemo(() => allCourses.map(c => ({
-        name: c.code || c.name,
-        grade: getGradeValue(c.grade),
-    })).filter(c => c.grade > 0), [allCourses]);
-    
-    const semesterGradeData = useMemo(() => {
-        const courses = semesters.find(s => s.name === selectedSemester)?.courses || [];
-        return courses.map(c => ({
-            subject: c.code || c.name,
-            A: getGradeValue(c.grade),
-            fullMark: getGradeValue(c.grade) > 4 ? 100 : 4.0,
-        })).filter(c => c.A > 0);
-    }, [semesters, selectedSemester]);
-    
+        const radarData = Array.from(activityCounts.entries()).map(([name, value]) => ({
+            activity: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            count: value,
+        }));
+        
+        return { radarData };
+    }, [engagementLogs]);
+
     return (
-        <div>
-            <h4 className="font-semibold mb-2">Grades Across All Courses</h4>
+         <div>
+            <h4 className="font-semibold mb-2">Activity Distribution</h4>
             <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={gradeData}>
-                    <XAxis dataKey="name" fontSize={10} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="grade" fill="var(--accent-color)" />
-                </BarChart>
-            </ResponsiveContainer>
-
-            <h4 className="font-semibold my-4">Semester Performance Breakdown</h4>
-            <select onChange={e => setSelectedSemester(e.target.value)} value={selectedSemester} className="bg-transparent border border-[var(--input-border-color)] p-2 rounded-lg mb-4">
-                {semesters.map(s => <option key={s.name} value={s.name} className="bg-[#0b1626]">{s.name}</option>)}
-            </select>
-             <ResponsiveContainer width="100%" height={300}>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={semesterGradeData}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" />
-                    <PolarRadiusAxis />
-                    <Radar name="Grade" dataKey="A" stroke="var(--accent-color)" fill="var(--accent-color)" fillOpacity={0.6} />
-                    <Tooltip />
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={engagementData.radarData}>
+                    <PolarGrid stroke="var(--border-color)" />
+                    <PolarAngleAxis dataKey="activity" fontSize={12} stroke="var(--text-dim)" />
+                    <PolarRadiusAxis angle={30} domain={[0, 'dataMax + 5']} tick={false} axisLine={false} />
+                    <Radar name="Activity Count" dataKey="count" stroke="var(--grad-1)" fill="var(--grad-1)" fillOpacity={0.6} />
+                     <Tooltip contentStyle={{ backgroundColor: 'var(--bg-offset)', border: '1px solid var(--border-color)' }}/>
                 </RadarChart>
             </ResponsiveContainer>
         </div>
     );
 };
 
-const EngagementTab: React.FC = () => {
-    const { engagementLogs } = useAppContext();
-    const today = new Date();
-    const days = 90;
-
-    const dataByDay = useMemo(() => {
-        const map = new Map<string, number>();
-        engagementLogs.forEach(log => {
-            const dateStr = new Date(log.ts).toISOString().split('T')[0];
-            map.set(dateStr, (map.get(dateStr) || 0) + 1);
-        });
-        return map;
-    }, [engagementLogs]);
-    
-    const activityByType = useMemo(() => {
-        const map = new Map<string, number>();
-        engagementLogs.forEach(log => {
-            map.set(log.activity, (map.get(log.activity) || 0) + 1);
-        });
-        return Array.from(map.entries()).map(([name, value]) => ({name, value}));
-    }, [engagementLogs]);
-
-    const renderHeatmap = () => {
-        const squares = [];
-        const startDate = new Date();
-        startDate.setDate(today.getDate() - days + 1);
-        
-        for (let i = 0; i < days; i++) {
-            const date = new Date(startDate);
-            date.setDate(startDate.getDate() + i);
-            const dateStr = date.toISOString().split('T')[0];
-            const count = dataByDay.get(dateStr) || 0;
-            
-            let colorClass = 'bg-gray-700/50';
-            if (count > 0) colorClass = 'bg-green-500/30';
-            if (count > 5) colorClass = 'bg-green-500/60';
-            if (count > 10) colorClass = 'bg-green-500/90';
-            
-            squares.push(
-                <div key={i} className={`w-4 h-4 rounded-sm ${colorClass}`} title={`${dateStr}: ${count} activities`} />
-            );
-        }
-        return squares;
-    };
-
-    return (
-        <div>
-            <h4 className="font-semibold mb-2">Activity Heatmap (Last 90 Days)</h4>
-            <div className="flex flex-wrap gap-1 bg-black/20 p-2 rounded-lg">{renderHeatmap()}</div>
-
-            <h4 className="font-semibold my-4">Activity Breakdown</h4>
-             <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={activityByType} layout="vertical">
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={150} fontSize={12} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="var(--accent-color)" />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    );
-};
-
-// --- MAIN COMPONENT ---
-type AnalyticsTab = 'overview' | 'attendance' | 'grades' | 'engagement';
+// --- MAIN ---
+type AnalyticsTab = 'overview' | 'attendance' | 'engagement';
 
 const AnalyticsManager: React.FC = () => {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
 
     const TABS: { id: AnalyticsTab, label: string }[] = [
-        { id: 'overview', label: 'Overview' },
+        { id: 'overview', label: 'Overall GPA' },
         { id: 'attendance', label: 'Attendance' },
-        { id: 'grades', label: 'Grades & Performance' },
         { id: 'engagement', label: 'Engagement' },
     ];
     
     return (
         <div>
-            <CardHeader title="Real-Time Analytics" subtitle="Insights into your academic life" />
+            <CardHeader title="Analytics & Insights" subtitle="Visualize your academic performance" />
             <div className="flex border-b border-white/10 mb-4">
                 {TABS.map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]' : 'text-gray-400 hover:text-white'}`}>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-text-dim hover:text-white'}`}>
                         {tab.label}
                     </button>
                 ))}
@@ -297,7 +215,6 @@ const AnalyticsManager: React.FC = () => {
             <div>
                 {activeTab === 'overview' && <OverviewTab />}
                 {activeTab === 'attendance' && <AttendanceTab />}
-                {activeTab === 'grades' && <GradesTab />}
                 {activeTab === 'engagement' && <EngagementTab />}
             </div>
         </div>

@@ -1,16 +1,9 @@
+// This component is no longer needed as the functionality is merged into PomodoroTimer.tsx and FocusView.tsx
+// Keeping the file to prevent import errors, but it's effectively deprecated.
 import React from 'react';
-import Button from '../ui/Button';
 
-interface FocusModeProps {
-  setIsFocusMode: (isFocus: boolean) => void;
-}
-
-const FocusMode: React.FC<FocusModeProps> = ({ setIsFocusMode }) => {
-  return (
-    <Button variant="cta" onClick={() => setIsFocusMode(true)}>
-      Enter Focus Mode
-    </Button>
-  );
+const FocusMode: React.FC<{ setIsFocusMode: (isFocus: boolean) => void; }> = ({ setIsFocusMode }) => {
+  return null;
 };
 
 export default FocusMode;

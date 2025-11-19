@@ -8,7 +8,7 @@ interface LazyLoadModuleProps {
 
 const LazyLoadModule: React.FC<LazyLoadModuleProps> = ({ children, placeholder }) => {
   const [ref, inView] = useInView({ rootMargin: '200px 0px' });
-  return <div ref={ref}>{inView ? children : placeholder}</div>;
+  return <div ref={ref} className="min-h-[12rem]">{inView ? children : placeholder}</div>;
 };
 
 export default LazyLoadModule;
