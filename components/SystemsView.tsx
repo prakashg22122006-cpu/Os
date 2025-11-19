@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import Card from './ui/Card';
 import AcademicsManager from './systems/AcademicsManager';
@@ -7,7 +8,7 @@ import TaskManager from './systems/TaskManager';
 import BackupRestoreManager from './systems/BackupRestoreManager';
 import NotesManager from './systems/NotesManager';
 import FileManager from './systems/FileManager';
-import FlashcardManager from './systems/FlashcardManager';
+import MemoryCenter from './systems/MemoryCenter'; 
 import HabitsManager from './systems/HabitsManager';
 import JobApplicationManager from './systems/JobApplicationManager';
 import VisionAndJournalManager from './systems/VisionAndJournalManager';
@@ -16,18 +17,24 @@ import GlobalSearch from './systems/GlobalSearch';
 import SettingsManager from './systems/SettingsManager';
 import ProgressManager from './systems/ProgressManager';
 import AnalyticsManager from './systems/AnalyticsManager';
+import CodingManager from './systems/CodingManager';
+import LabsManager from './systems/LabsManager';
+import CSToolsManager from './systems/CSToolsManager';
 import { useAppContext } from '../context/AppContext';
 import LazyLoadModule from './ui/LazyLoadModule';
 import { SystemModuleSetting } from '../types';
 
 const MODULE_MAP: { [key: string]: React.FC } = {
     search: GlobalSearch,
+    coding: CodingManager,
+    labs: LabsManager,
+    cstools: CSToolsManager,
     notes: NotesManager,
     files: FileManager,
     academics: AcademicsManager,
     analytics: AnalyticsManager,
     progress: ProgressManager,
-    flashcards: FlashcardManager,
+    memory: MemoryCenter,
     habits: HabitsManager,
     jobs: JobApplicationManager,
     vision: VisionAndJournalManager,
@@ -69,16 +76,20 @@ const SystemsView: React.FC = () => {
     
     const enabledModules = useMemo(() => {
         const modules = Array.isArray(appSettings.systemModules) ? appSettings.systemModules : [];
-        const settingsMap = new Map(
-            modules.filter(m => m && m.id).map(m => [m.id, m])
+        
+        const sanitizedModuleSettings = modules.filter((m): m is SystemModuleSetting => !!(m && m.id));
+
+        const settingsMap = new Map<string, SystemModuleSetting>(
+            sanitizedModuleSettings.map(m => [m.id, m] as [string, SystemModuleSetting])
         );
         return Object.keys(MODULE_MAP)
             .map(id => ({ id, settings: settingsMap.get(id) }))
-            // FIX: Use a type guard to safely access properties on `settings`, which may be malformed from localStorage and thus typed as `unknown`.
-            .filter((m): m is { id: string, settings: SystemModuleSetting } => (m.settings as any)?.enabled)
+            .filter((m): m is { id: string, settings: SystemModuleSetting } => {
+                return !!m.settings && m.settings.enabled;
+            })
             .sort((a, b) => {
-                const indexA = appSettings.systemModules.findIndex(s => s.id === a.id);
-                const indexB = appSettings.systemModules.findIndex(s => s.id === b.id);
+                const indexA = sanitizedModuleSettings.findIndex(s => s.id === a.id);
+                const indexB = sanitizedModuleSettings.findIndex(s => s.id === b.id);
                 return indexA - indexB;
             });
     }, [appSettings.systemModules]);

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from './Button';
@@ -23,7 +24,7 @@ const QuickCreateModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             setTasks(prev => [newTask, ...prev]);
         } else if (type === 'note') {
             const newNote: Note = {
-                id: Date.now(), ts: Date.now(), updatedAt: Date.now(), title, content: '', attachments: []
+                id: Date.now(), ts: Date.now(), updatedAt: Date.now(), title, content: '', attachments: [], template: 'standard'
             };
             setNotes(prev => [newNote, ...prev]);
         } else if (type === 'event') {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Card from './ui/Card';
 import ClockCalendar from './dashboard/ClockCalendar';
@@ -13,8 +14,10 @@ import { useAppContext } from '../context/AppContext';
 import ProgressSummary from './dashboard/ProgressSummary';
 import { DashboardWidgetSetting } from '../types';
 import GamificationWidget from './dashboard/GamificationWidget';
+import SmartStudyEngine from './dashboard/SmartStudyEngine';
 
 const WIDGETS_MAP: { [key: string]: React.FC<any> } = {
+    smart_study: SmartStudyEngine,
     summary: ProgressSummary,
     clock: ClockCalendar,
     pomodoro: PomodoroTimer,

@@ -1,39 +1,40 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { AppSettings, DashboardWidgetSetting, SystemModuleSetting, ThemeConfig } from '../../types';
+import { AppSettings, ThemeConfig } from '../../types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import AdvancedColorPicker from '../ui/AdvancedColorPicker';
 import { addFile } from '../../utils/db';
 
 const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
-    <h3 className="m-0 mb-4 text-lg font-semibold text-[var(--text-color-accent)]">
-        {title} {subtitle && <small className="text-[var(--text-color-dim)] font-normal ml-1">{subtitle}</small>}
-    </h3>
-);
-
-const SettingsSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl">
-        <h4 className="font-semibold text-[var(--text-color-accent)] mb-3">{title}</h4>
-        <div className="space-y-4">
-            {children}
-        </div>
+    <div className="mb-4">
+        <h3 className="m-0 text-lg font-semibold text-[var(--text-color-accent)]">{title}</h3>
+        {subtitle && <p className="text-sm text-[var(--text-color-dim)] mt-0.5">{subtitle}</p>}
     </div>
 );
 
-const SettingItem: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-    <div>
-        <label className="text-sm font-medium text-[var(--text-color-dim)]">{label}</label>
-        <div className="mt-1">
-            {children}
-        </div>
-    </div>
+const THEME_PRESETS = [
+    { name: 'Deep Space', accent: '#3bb0ff', bg: '#0b1626', config: { accentHue: 204, accentSaturation: 100, accentLightness: 61, bgHue: 216, bgSaturation: 55, bgLightness: 10 } },
+    { name: 'Cyberpunk', accent: '#f43f5e', bg: '#180412', config: { accentHue: 345, accentSaturation: 90, accentLightness: 60, bgHue: 310, bgSaturation: 70, bgLightness: 5 } },
+    { name: 'Forest', accent: '#34d399', bg: '#051a10', config: { accentHue: 158, accentSaturation: 64, accentLightness: 51, bgHue: 150, bgSaturation: 67, bgLightness: 6 } },
+    { name: 'Sunset', accent: '#fbbf24', bg: '#1f1005', config: { accentHue: 38, accentSaturation: 96, accentLightness: 56, bgHue: 25, bgSaturation: 60, bgLightness: 7 } },
+    { name: 'Royal', accent: '#a855f7', bg: '#12051f', config: { accentHue: 271, accentSaturation: 91, accentLightness: 65, bgHue: 270, bgSaturation: 70, bgLightness: 7 } },
+    { name: 'Monochrome', accent: '#94a3b8', bg: '#0f172a', config: { accentHue: 215, accentSaturation: 20, accentLightness: 65, bgHue: 220, bgSaturation: 45, bgLightness: 11 } },
+];
+
+const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+    <button
+        onClick={onClick}
+        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${active ? 'bg-[var(--accent-color)] text-[var(--accent-text-color)] shadow-md' : 'text-[var(--text-color-dim)] hover:bg-white/5'}`}
+    >
+        {children}
+    </button>
 );
 
 const SettingsManager: React.FC = () => {
     const { appSettings, setAppSettings } = useAppContext();
-    const [widgets, setWidgets] = useState(appSettings.dashboardWidgets);
-    const [modules, setModules] = useState(appSettings.systemModules);
+    const [activeTab, setActiveTab] = useState<'appearance' | 'workspace' | 'modules'>('appearance');
 
     const handleSettingChange = (key: keyof AppSettings, value: any) => {
         setAppSettings(prev => ({ ...prev, [key]: value }));
@@ -42,45 +43,15 @@ const SettingsManager: React.FC = () => {
     const handleThemeConfigChange = (newConfig: Partial<ThemeConfig>) => {
         setAppSettings(prev => ({
             ...prev,
-            themeConfig: {
-                ...prev.themeConfig,
-                ...newConfig
-            }
+            themeConfig: { ...prev.themeConfig, ...newConfig }
         }));
     };
 
-    const handleWidgetToggle = (id: string) => {
-        const newWidgets = widgets.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w);
-        setWidgets(newWidgets);
-        handleSettingChange('dashboardWidgets', newWidgets);
-    };
-
-    const moveWidget = (index: number, direction: 'up' | 'down') => {
-        const newWidgets = [...widgets];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= newWidgets.length) return;
-        [newWidgets[index], newWidgets[targetIndex]] = [newWidgets[targetIndex], newWidgets[index]]; // Swap
-        setWidgets(newWidgets);
-        handleSettingChange('dashboardWidgets', newWidgets);
-    };
-    
-    const handleModuleToggle = (id: string) => {
-        const newModules = modules.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m);
-        setModules(newModules);
-        handleSettingChange('systemModules', newModules);
-    };
-
-    const moveModule = (index: number, direction: 'up' | 'down') => {
-        const newModules = [...modules];
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        if (targetIndex < 0 || targetIndex >= newModules.length) return;
-        [newModules[index], newModules[targetIndex]] = [newModules[targetIndex], newModules[index]]; // Swap
-        setModules(newModules);
-        handleSettingChange('systemModules', newModules);
-    };
-
-    const handleWallpaperTypeChange = (type: AppSettings['wallpaper']['type']) => {
-        handleSettingChange('wallpaper', { ...appSettings.wallpaper, type });
+    const handleApplyPreset = (config: ThemeConfig) => {
+        setAppSettings(prev => ({
+            ...prev,
+            themeConfig: config,
+        }));
     };
 
     const handleWallpaperImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,15 +59,8 @@ const SettingsManager: React.FC = () => {
         if (!file) return;
         try {
             const imageId = await addFile(file);
-            handleSettingChange('wallpaper', { type: 'image', imageId });
-        } catch (error) {
-            console.error("Failed to upload wallpaper image:", error);
-            alert("Failed to upload image.");
-        }
-    };
-
-    const removeWallpaperImage = () => {
-        handleSettingChange('wallpaper', { type: 'default' });
+            handleSettingChange('wallpaper', { ...appSettings.wallpaper, type: 'image', imageId });
+        } catch (error) { alert("Failed to upload image."); }
     };
     
     const handleLiveWallpaperImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,181 +76,186 @@ const SettingsManager: React.FC = () => {
                     liveImageId: imageId,
                 }
             });
-        } catch (error) {
-            console.error("Failed to upload live wallpaper background:", error);
-            alert("Failed to upload image.");
-        }
+        } catch (error) { alert("Failed to upload live bg."); }
     };
-
-    const removeLiveWallpaperImage = () => {
-        handleSettingChange('wallpaper', {
-            ...appSettings.wallpaper,
-            type: 'live',
-            liveConfig: {
-                ...(appSettings.wallpaper.liveConfig || { particleDensity: 0.5, particleOpacity: 0.5 }),
-                liveImageId: undefined,
-            }
-        });
+    
+    const toggleWidget = (id: string) => {
+        const widgets = appSettings.dashboardWidgets.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w);
+        handleSettingChange('dashboardWidgets', widgets);
     };
-
-
-    const handleLiveWallpaperConfigChange = (key: 'particleDensity' | 'particleOpacity', value: number) => {
-        handleSettingChange('wallpaper', {
-            ...appSettings.wallpaper,
-            liveConfig: {
-                ...(appSettings.wallpaper.liveConfig || { particleDensity: 0.5, particleOpacity: 0.5 }),
-                [key]: value
-            }
-        });
+    
+    const toggleModule = (id: string) => {
+        const modules = appSettings.systemModules.map(m => m.id === id ? { ...m, enabled: !m.enabled } : m);
+        handleSettingChange('systemModules', modules);
     };
-
 
     return (
-        <div>
-            <CardHeader title="Settings" subtitle="Customize your workspace" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4">
-                    <SettingsSection title="Appearance">
-                        <SettingItem label="UI Style">
-                            <div className="flex gap-2">
-                                <Button variant={appSettings.uiStyle === 'classic' ? 'primary' : 'outline'} onClick={() => handleSettingChange('uiStyle', 'classic')}>Classic</Button>
-                                <Button variant={appSettings.uiStyle === 'modern' ? 'primary' : 'outline'} onClick={() => handleSettingChange('uiStyle', 'modern')}>Modern</Button>
-                            </div>
-                        </SettingItem>
-                        <SettingItem label="Theme">
-                            <div className="flex gap-2">
-                                <Button variant={appSettings.theme === 'dark' ? 'primary' : 'outline'} onClick={() => handleSettingChange('theme', 'dark')}>Dark</Button>
-                                <Button variant={appSettings.theme === 'light' ? 'primary' : 'outline'} onClick={() => handleSettingChange('theme', 'light')}>Light</Button>
-                            </div>
-                            <p className="text-xs text-[var(--text-color-dim)] mt-2">Adjust theme for best text contrast with your chosen background color.</p>
-                        </SettingItem>
-                        <SettingItem label="Layout Density">
-                            <div className="flex gap-2">
-                                <Button variant={appSettings.layout === 'spacious' ? 'primary' : 'outline'} onClick={() => handleSettingChange('layout', 'spacious')}>Spacious</Button>
-                                <Button variant={appSettings.layout === 'cozy' ? 'primary' : 'outline'} onClick={() => handleSettingChange('layout', 'cozy')}>Cozy</Button>
-                                <Button variant={appSettings.layout === 'compact' ? 'primary' : 'outline'} onClick={() => handleSettingChange('layout', 'compact')}>Compact</Button>
-                            </div>
-                        </SettingItem>
-                        <SettingItem label="Font Family">
-                            <div className="flex gap-2">
-                                <Button variant={appSettings.fontFamily === 'sans' ? 'primary' : 'outline'} onClick={() => handleSettingChange('fontFamily', 'sans')}>Sans-Serif</Button>
-                                <Button variant={appSettings.fontFamily === 'serif' ? 'primary' : 'outline'} onClick={() => handleSettingChange('fontFamily', 'serif')}>Serif</Button>
-                                <Button variant={appSettings.fontFamily === 'mono' ? 'primary' : 'outline'} onClick={() => handleSettingChange('fontFamily', 'mono')}>Mono</Button>
-                            </div>
-                        </SettingItem>
-                    </SettingsSection>
+        <div className="max-w-4xl mx-auto">
+            <CardHeader title="Settings Center" subtitle="Customize your personal OS experience" />
+            
+            <div className="flex gap-2 mb-6 border-b border-[var(--card-border-color)] pb-4 overflow-x-auto">
+                <TabButton active={activeTab === 'appearance'} onClick={() => setActiveTab('appearance')}>🎨 Appearance & Theme</TabButton>
+                <TabButton active={activeTab === 'workspace'} onClick={() => setActiveTab('workspace')}>⚙️ Workspace & Layout</TabButton>
+                <TabButton active={activeTab === 'modules'} onClick={() => setActiveTab('modules')}>📦 Modules & Widgets</TabButton>
+            </div>
 
-                    <SettingsSection title="Wallpaper">
-                        <SettingItem label="Wallpaper Type">
-                            <div className="flex gap-2">
-                                <Button variant={appSettings.wallpaper.type === 'default' ? 'primary' : 'outline'} onClick={() => handleWallpaperTypeChange('default')}>Default</Button>
-                                <Button variant={appSettings.wallpaper.type === 'image' ? 'primary' : 'outline'} onClick={() => handleWallpaperTypeChange('image')}>Image</Button>
-                                <Button variant={appSettings.wallpaper.type === 'live' ? 'primary' : 'outline'} onClick={() => handleWallpaperTypeChange('live')}>Live</Button>
-                            </div>
-                            <p className="text-xs text-[var(--text-color-dim)] mt-2">Overrides the default background for both Classic and Modern UI styles.</p>
-                        </SettingItem>
-                        {appSettings.wallpaper.type === 'image' && (
-                            <SettingItem label="Upload Custom Image">
-                                <div className="flex gap-2 items-center">
-                                    <Input type="file" accept="image/*" onChange={handleWallpaperImageUpload} />
-                                    {appSettings.wallpaper.imageId && (
-                                        <Button variant="outline" onClick={removeWallpaperImage}>Remove</Button>
-                                    )}
+            <div className="space-y-8">
+                {activeTab === 'appearance' && (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl">
+                                <h4 className="font-semibold mb-4">Theme Presets</h4>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {THEME_PRESETS.map(preset => (
+                                        <button
+                                            key={preset.name}
+                                            onClick={() => handleApplyPreset(preset.config)}
+                                            className="flex flex-col items-center gap-2 p-2 rounded-lg border border-transparent hover:border-[var(--accent-color)] transition-all group"
+                                        >
+                                            <div className="w-full aspect-video rounded-md shadow-lg flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: preset.bg }}>
+                                                <div className="w-8 h-8 rounded-full shadow-md" style={{ backgroundColor: preset.accent }}></div>
+                                            </div>
+                                            <span className="text-xs text-[var(--text-color-dim)] group-hover:text-[var(--text-color)]">{preset.name}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                            </SettingItem>
-                        )}
-                        {appSettings.wallpaper.type === 'live' && (
-                            <>
-                                <SettingItem label="Live Wallpaper Background">
-                                    <div className="flex gap-2 items-center">
+                            </div>
+
+                            <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl">
+                                <h4 className="font-semibold mb-4">Wallpaper</h4>
+                                <div className="flex gap-2 mb-4">
+                                    {(['default', 'image', 'live'] as const).map(type => (
+                                        <Button
+                                            key={type}
+                                            variant={appSettings.wallpaper.type === type ? 'primary' : 'outline'}
+                                            onClick={() => handleSettingChange('wallpaper', { ...appSettings.wallpaper, type })}
+                                            className="flex-1 capitalize"
+                                        >
+                                            {type}
+                                        </Button>
+                                    ))}
+                                </div>
+                                {appSettings.wallpaper.type === 'image' && (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-gray-400">Upload a static background image.</p>
+                                        <Input type="file" accept="image/*" onChange={handleWallpaperImageUpload} />
+                                    </div>
+                                )}
+                                {appSettings.wallpaper.type === 'live' && (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-gray-400">Background image for particle effects.</p>
                                         <Input type="file" accept="image/*" onChange={handleLiveWallpaperImageUpload} />
-                                        {appSettings.wallpaper.liveConfig?.liveImageId && (
-                                            <Button variant="outline" onClick={removeLiveWallpaperImage}>Remove</Button>
-                                        )}
                                     </div>
-                                </SettingItem>
-                                <SettingItem label="Particle Density">
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={appSettings.wallpaper.liveConfig?.particleDensity || 0.5}
-                                        onChange={(e) => handleLiveWallpaperConfigChange('particleDensity', parseFloat(e.target.value))}
-                                        className="w-full"
-                                    />
-                                </SettingItem>
-                                <SettingItem label="Particle Opacity">
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={appSettings.wallpaper.liveConfig?.particleOpacity || 0.5}
-                                        onChange={(e) => handleLiveWallpaperConfigChange('particleOpacity', parseFloat(e.target.value))}
-                                        className="w-full"
-                                    />
-                                </SettingItem>
-                            </>
-                        )}
-                    </SettingsSection>
-                    
-                    <SettingsSection title="Color Customization">
-                        <SettingItem label="Accent Color">
-                            <AdvancedColorPicker
-                                hue={appSettings.themeConfig.accentHue}
-                                saturation={appSettings.themeConfig.accentSaturation}
-                                lightness={appSettings.themeConfig.accentLightness}
-                                onChange={(c) => handleThemeConfigChange({ accentHue: c.h, accentSaturation: c.s, accentLightness: c.l })}
-                            />
-                        </SettingItem>
-                         <SettingItem label="Background Color">
-                            <AdvancedColorPicker
-                                hue={appSettings.themeConfig.bgHue}
-                                saturation={appSettings.themeConfig.bgSaturation}
-                                lightness={appSettings.themeConfig.bgLightness}
-                                onChange={(c) => handleThemeConfigChange({ bgHue: c.h, bgSaturation: c.s, bgLightness: c.l })}
-                            />
-                        </SettingItem>
-                    </SettingsSection>
-                </div>
+                                )}
+                            </div>
+                        </div>
 
-                <div className="space-y-4">
-                    <SettingsSection title="Dashboard Widgets">
-                        <p className="text-xs text-[var(--text-color-dim)] -mt-2">Toggle visibility and re-order.</p>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                            {widgets.map((widget, index) => (
-                                <div key={widget.id} className="flex items-center justify-between p-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[var(--card-border-color)]">
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                        <input type="checkbox" checked={widget.enabled} onChange={() => handleWidgetToggle(widget.id)} className="form-checkbox h-4 w-4 rounded bg-transparent border-gray-600 text-[var(--accent-color)] focus:ring-0"/>
+                        <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl">
+                            <h4 className="font-semibold mb-4">Custom Colors</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <label className="block text-sm mb-2 text-[var(--text-color-dim)]">Accent Color</label>
+                                    <AdvancedColorPicker
+                                        hue={appSettings.themeConfig.accentHue}
+                                        saturation={appSettings.themeConfig.accentSaturation}
+                                        lightness={appSettings.themeConfig.accentLightness}
+                                        onChange={(c) => handleThemeConfigChange({ accentHue: c.h, accentSaturation: c.s, accentLightness: c.l })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-2 text-[var(--text-color-dim)]">Background Tint</label>
+                                    <AdvancedColorPicker
+                                        hue={appSettings.themeConfig.bgHue}
+                                        saturation={appSettings.themeConfig.bgSaturation}
+                                        lightness={appSettings.themeConfig.bgLightness}
+                                        onChange={(c) => handleThemeConfigChange({ bgHue: c.h, bgSaturation: c.s, bgLightness: c.l })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'workspace' && (
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl space-y-4">
+                             <h4 className="font-semibold">Interface Style</h4>
+                             <div>
+                                <label className="text-sm text-[var(--text-color-dim)] block mb-2">UI Mode</label>
+                                <div className="flex gap-2">
+                                    <Button variant={appSettings.uiStyle === 'classic' ? 'primary' : 'outline'} onClick={() => handleSettingChange('uiStyle', 'classic')} className="flex-1">Classic (Parallax)</Button>
+                                    <Button variant={appSettings.uiStyle === 'modern' ? 'primary' : 'outline'} onClick={() => handleSettingChange('uiStyle', 'modern')} className="flex-1">Modern (Glass)</Button>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-sm text-[var(--text-color-dim)] block mb-2">Layout Density</label>
+                                <select 
+                                    value={appSettings.layout} 
+                                    onChange={e => handleSettingChange('layout', e.target.value)}
+                                    className="w-full bg-[var(--bg-gradient-start)] border border-[var(--input-border-color)] p-2 rounded-lg"
+                                >
+                                    <option value="spacious">Spacious</option>
+                                    <option value="cozy">Cozy</option>
+                                    <option value="compact">Compact</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-sm text-[var(--text-color-dim)] block mb-2">Typography</label>
+                                <div className="flex gap-2">
+                                     <Button variant={appSettings.fontFamily === 'sans' ? 'primary' : 'outline'} onClick={() => handleSettingChange('fontFamily', 'sans')} className="flex-1 font-sans">Sans</Button>
+                                     <Button variant={appSettings.fontFamily === 'serif' ? 'primary' : 'outline'} onClick={() => handleSettingChange('fontFamily', 'serif')} className="flex-1 font-serif">Serif</Button>
+                                     <Button variant={appSettings.fontFamily === 'mono' ? 'primary' : 'outline'} onClick={() => handleSettingChange('fontFamily', 'mono')} className="flex-1 font-mono">Mono</Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl space-y-4">
+                            <h4 className="font-semibold">Time & Date</h4>
+                            <div>
+                                <label className="text-sm text-[var(--text-color-dim)] block mb-2">Time Format</label>
+                                <div className="flex gap-2">
+                                    <Button variant={appSettings.timeFormat === '12h' ? 'primary' : 'outline'} onClick={() => handleSettingChange('timeFormat', '12h')} className="flex-1">12 Hour (AM/PM)</Button>
+                                    <Button variant={appSettings.timeFormat === '24h' ? 'primary' : 'outline'} onClick={() => handleSettingChange('timeFormat', '24h')} className="flex-1">24 Hour</Button>
+                                </div>
+                            </div>
+                        </div>
+                     </div>
+                )}
+
+                {activeTab === 'modules' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl">
+                            <h4 className="font-semibold mb-2">Dashboard Widgets</h4>
+                            <p className="text-xs text-gray-400 mb-4">Toggle visibility on the main dashboard.</p>
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                {appSettings.dashboardWidgets.map(widget => (
+                                    <div key={widget.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
                                         <span>{widget.name}</span>
-                                    </label>
-                                    <div className="flex gap-1">
-                                        <Button variant="outline" className="text-xs !p-1" disabled={index === 0} onClick={() => moveWidget(index, 'up')}>↑</Button>
-                                        <Button variant="outline" className="text-xs !p-1" disabled={index === widgets.length - 1} onClick={() => moveWidget(index, 'down')}>↓</Button>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" checked={widget.enabled} onChange={() => toggleWidget(widget.id)} className="sr-only peer" />
+                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-color)]"></div>
+                                        </label>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </SettingsSection>
-                    <SettingsSection title="System Modules">
-                        <p className="text-xs text-[var(--text-color-dim)] -mt-2">Toggle visibility and re-order.</p>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                            {modules.map((module, index) => (
-                                <div key={module.id} className="flex items-center justify-between p-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[var(--card-border-color)]">
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                        <input type="checkbox" checked={module.enabled} onChange={() => handleModuleToggle(module.id)} className="form-checkbox h-4 w-4 rounded bg-transparent border-gray-600 text-[var(--accent-color)] focus:ring-0"/>
+                         <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--card-border-color)] p-4 rounded-xl">
+                            <h4 className="font-semibold mb-2">System Modules</h4>
+                            <p className="text-xs text-gray-400 mb-4">Enable or disable major system features.</p>
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                {appSettings.systemModules.map(module => (
+                                    <div key={module.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
                                         <span>{module.name}</span>
-                                    </label>
-                                    <div className="flex gap-1">
-                                        <Button variant="outline" className="text-xs !p-1" disabled={index === 0} onClick={() => moveModule(index, 'up')}>↑</Button>
-                                        <Button variant="outline" className="text-xs !p-1" disabled={index === modules.length - 1} onClick={() => moveModule(index, 'down')}>↓</Button>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" checked={module.enabled} onChange={() => toggleModule(module.id)} className="sr-only peer" />
+                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-color)]"></div>
+                                        </label>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </SettingsSection>
-                </div>
+                    </div>
+                )}
             </div>
         </div>
     );

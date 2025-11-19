@@ -1,9 +1,11 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { StudyLog, Semester, Project, Transaction, KanbanBoard, Note, Class, Deck, StoredFileData, KanbanTask, Event, PomodoroLog, Track, Playlist, MusicPlayerState, Habit, JobApplication, Task, TaskStatus, TaskPriority, VisionCard, JournalEntry, FinancialTransaction, TransactionCategory, Budget, AppSettings, DashboardWidgetSetting, SystemModuleSetting, LearningLog, Course, EngagementLog, CustomWheel, LinkResource } from '../types';
+import { StudyLog, Semester, Project, Transaction, KanbanBoard, Note, Class, Deck, StoredFileData, KanbanTask, Event, PomodoroLog, Track, Playlist, MusicPlayerState, Habit, JobApplication, Task, TaskStatus, TaskPriority, VisionCard, JournalEntry, FinancialTransaction, TransactionCategory, Budget, AppSettings, DashboardWidgetSetting, SystemModuleSetting, LearningLog, Course, EngagementLog, CustomWheel, LinkResource, MemoryPalace, CodeSnippet, Algorithm, BugLog, LabRecord, ResearchPaper } from '../types';
 import { addBackup, getBackups, deleteBackup } from '../utils/db';
 
 const DEFAULT_WIDGETS: DashboardWidgetSetting[] = [
+    { id: 'smart_study', enabled: true, colSpan: 3, name: 'Smart Study Engine', minimized: false },
     { id: 'summary', enabled: true, colSpan: 3, name: 'Progress Summary', minimized: false },
     { id: 'clock', enabled: true, colSpan: 3, name: 'Calendar & Clock', minimized: false },
     { id: 'pomodoro', enabled: true, colSpan: 1, name: 'Pomodoro Timer', minimized: false },
@@ -17,7 +19,11 @@ const DEFAULT_WIDGETS: DashboardWidgetSetting[] = [
 ];
 
 const DEFAULT_SYSTEM_MODULES: SystemModuleSetting[] = [
-    { id: 'notes', name: 'Notes & Resource Library', enabled: true, minimized: false },
+    { id: 'coding', name: 'Coding & Dev System', enabled: true, minimized: false },
+    { id: 'labs', name: 'Labs & Research', enabled: true, minimized: false },
+    { id: 'cstools', name: 'Advanced CS Tools', enabled: true, minimized: false },
+    { id: 'notes', name: 'Notes & Knowledge Base', enabled: true, minimized: false },
+    { id: 'memory', name: 'Memory & Revision Center', enabled: true, minimized: false },
     { id: 'files', name: 'Resource Manager', enabled: true, minimized: false },
     { id: 'academics', name: 'Academics Manager', enabled: true, minimized: false },
     { id: 'projects', name: 'Projects Manager', enabled: true, minimized: false },
@@ -26,6 +32,113 @@ const DEFAULT_SYSTEM_MODULES: SystemModuleSetting[] = [
     { id: 'backup', name: 'Backup & Restore', enabled: true, minimized: false },
     { id: 'settings', name: 'Settings', enabled: true, minimized: false },
 ];
+
+const DEFAULT_APP_SETTINGS: AppSettings = {
+    theme: 'dark',
+    uiStyle: 'classic',
+    themeConfig: {
+      accentHue: 211,
+      accentSaturation: 100,
+      accentLightness: 65,
+      bgHue: 215,
+      bgSaturation: 25,
+      bgLightness: 10,
+    },
+    layout: 'spacious',
+    fontFamily: 'sans',
+    dashboardColumns: '3',
+    dashboardWidgets: DEFAULT_WIDGETS,
+    systemModules: DEFAULT_SYSTEM_MODULES,
+    wallpaper: { 
+        type: 'default',
+        liveConfig: {
+            particleDensity: 0.5,
+            particleOpacity: 0.5,
+            liveImageId: undefined,
+        }
+    },
+    defaults: {
+        pomodoro: { work: 25, break: 5, deep: 50 },
+        quickNote: { color: 'Default', isPinned: false },
+    },
+    timeFormat: '12h',
+    focusMode: { defaultTheme: 'deep_space', defaultTimerSize: 300 },
+  };
+
+// Helper function to load and merge settings safely before the first render
+const loadAndMergeAppSettings = (): AppSettings => {
+    let storedSettings: Partial<AppSettings> | null = null;
+    try {
+        const item = localStorage.getItem('appSettings');
+        if (item && item !== 'undefined') {
+            const parsed = JSON.parse(item);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                storedSettings = parsed;
+            }
+        }
+    } catch {
+        console.error("Could not parse appSettings from localStorage, using defaults.");
+        storedSettings = null;
+    }
+
+    const mergeSettingsArray = <T extends {id: string}>(defaults: T[], current: T[] | undefined): T[] => {
+      if (!current || !Array.isArray(current)) return defaults;
+      
+      const defaultMap = new Map(defaults.map(item => [item.id, item]));
+      const currentValid = current.filter(item => item && item.id);
+      
+      const updatedFromCurrent = currentValid.map(currentItem => {
+          const defaultItem = defaultMap.get(currentItem.id);
+          return defaultItem ? { ...defaultItem, ...currentItem } : currentItem;
+      });
+      
+      const currentMap = new Map(updatedFromCurrent.map(item => [item.id, item]));
+
+      defaults.forEach(defaultItem => {
+          if (!currentMap.has(defaultItem.id)) {
+              updatedFromCurrent.push(defaultItem);
+          }
+      });
+
+      return updatedFromCurrent;
+    };
+
+    const safeGet = (path: string[]): object => {
+        let current: any = storedSettings;
+        for (const key of path) {
+            if (current === null || typeof current !== 'object' || Array.isArray(current)) {
+                return {};
+            }
+            current = current[key];
+        }
+        if (typeof current === 'object' && !Array.isArray(current) && current !== null) {
+            return current;
+        }
+        return {};
+    };
+
+    const merged: AppSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      ...(storedSettings || {}),
+      themeConfig: { ...DEFAULT_APP_SETTINGS.themeConfig, ...safeGet(['themeConfig']) },
+      wallpaper: {
+          ...DEFAULT_APP_SETTINGS.wallpaper,
+          ...safeGet(['wallpaper']),
+          liveConfig: { ...DEFAULT_APP_SETTINGS.wallpaper.liveConfig, ...safeGet(['wallpaper', 'liveConfig']) }
+      },
+      defaults: {
+          ...DEFAULT_APP_SETTINGS.defaults,
+          ...safeGet(['defaults']),
+          pomodoro: { ...DEFAULT_APP_SETTINGS.defaults.pomodoro, ...safeGet(['defaults', 'pomodoro']) },
+          quickNote: { ...DEFAULT_APP_SETTINGS.defaults.quickNote, ...safeGet(['defaults', 'quickNote']) },
+      },
+      focusMode: { ...DEFAULT_APP_SETTINGS.focusMode, ...safeGet(['focusMode']) },
+      dashboardWidgets: mergeSettingsArray(DEFAULT_APP_SETTINGS.dashboardWidgets, storedSettings?.dashboardWidgets),
+      systemModules: mergeSettingsArray(DEFAULT_APP_SETTINGS.systemModules, storedSettings?.systemModules),
+    };
+
+    return merged;
+};
 
 interface AppContextType {
   classes: Class[];
@@ -50,6 +163,8 @@ interface AppContextType {
   setNotes: React.Dispatch<React.SetStateAction<Note[]>>;
   decks: Deck[];
   setDecks: React.Dispatch<React.SetStateAction<Deck[]>>;
+  memoryPalaces: MemoryPalace[];
+  setMemoryPalaces: React.Dispatch<React.SetStateAction<MemoryPalace[]>>;
   viewingFile: StoredFileData | null;
   setViewingFile: React.Dispatch<React.SetStateAction<StoredFileData | null>>;
   viewingTask: Task | null;
@@ -91,6 +206,20 @@ interface AppContextType {
   setCustomWheels: React.Dispatch<React.SetStateAction<CustomWheel[]>>;
   linkResources: LinkResource[];
   setLinkResources: React.Dispatch<React.SetStateAction<LinkResource[]>>;
+  
+  // CS Types
+  codeSnippets: CodeSnippet[];
+  setCodeSnippets: React.Dispatch<React.SetStateAction<CodeSnippet[]>>;
+  algorithms: Algorithm[];
+  setAlgorithms: React.Dispatch<React.SetStateAction<Algorithm[]>>;
+  bugLogs: BugLog[];
+  setBugLogs: React.Dispatch<React.SetStateAction<BugLog[]>>;
+  
+  // Labs Types
+  labRecords: LabRecord[];
+  setLabRecords: React.Dispatch<React.SetStateAction<LabRecord[]>>;
+  researchPapers: ResearchPaper[];
+  setResearchPapers: React.Dispatch<React.SetStateAction<ResearchPaper[]>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -105,6 +234,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [tasks, setTasks] = useLocalStorage<Task[]>('tasks', []);
   const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
   const [decks, setDecks] = useLocalStorage<Deck[]>('decks', []);
+  const [memoryPalaces, setMemoryPalaces] = useLocalStorage<MemoryPalace[]>('memoryPalaces', []);
   const [viewingFile, setViewingFile] = useState<StoredFileData | null>(null);
   const [viewingTask, setViewingTask] = useState<Task | null>(null);
   const [viewingScheduleItem, setViewingScheduleItem] = useState<Class | null>(null);
@@ -128,6 +258,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [customWheels, setCustomWheels] = useLocalStorage<CustomWheel[]>('customWheels', []);
   const [linkResources, setLinkResources] = useLocalStorage<LinkResource[]>('linkResources', []);
   
+  // CS Workspace Data
+  const [codeSnippets, setCodeSnippets] = useLocalStorage<CodeSnippet[]>('codeSnippets', []);
+  const [algorithms, setAlgorithms] = useLocalStorage<Algorithm[]>('algorithms', []);
+  const [bugLogs, setBugLogs] = useLocalStorage<BugLog[]>('bugLogs', []);
+  
+  // Labs Data
+  const [labRecords, setLabRecords] = useLocalStorage<LabRecord[]>('labRecords', []);
+  const [researchPapers, setResearchPapers] = useLocalStorage<ResearchPaper[]>('researchPapers', []);
+  
   // New Finance State
   const [financialTransactions, setFinancialTransactions] = useLocalStorage<FinancialTransaction[]>('financialTransactions', []);
   const [transactionCategories, setTransactionCategories] = useLocalStorage<TransactionCategory[]>('transactionCategories', []);
@@ -137,39 +276,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [engagementLogs, setEngagementLogs] = useLocalStorage<EngagementLog[]>('engagementLogs', []);
   
   // App Settings
-  const [appSettings, setAppSettings] = useLocalStorage<AppSettings>('appSettings', {
-    theme: 'dark',
-    uiStyle: 'classic',
-    themeConfig: {
-      accentHue: 211,
-      accentSaturation: 100,
-      accentLightness: 65,
-      bgHue: 215,
-      bgSaturation: 25,
-      bgLightness: 10,
-    },
-    layout: 'spacious',
-    fontFamily: 'sans',
-    dashboardColumns: '3',
-    dashboardWidgets: DEFAULT_WIDGETS,
-    systemModules: DEFAULT_SYSTEM_MODULES,
-    wallpaper: { 
-        type: 'default',
-        liveConfig: {
-            particleDensity: 0.5,
-            particleOpacity: 0.5,
-            liveImageId: undefined,
-        }
-    },
-    defaults: {
-        pomodoro: { work: 25, break: 5, deep: 50 },
-        quickNote: { color: 'Default', isPinned: false },
-    },
-    timeFormat: '12h',
-    focusMode: { defaultTheme: 'deep_space', defaultTimerSize: 300 },
-  });
+  const [appSettings, setAppSettings] = useState<AppSettings>(loadAndMergeAppSettings);
+  useEffect(() => {
+      try {
+          if (appSettings !== undefined) {
+              localStorage.setItem('appSettings', JSON.stringify(appSettings));
+          }
+      } catch (error) {
+          console.error('Error saving appSettings to localStorage:', error);
+      }
+  }, [appSettings]);
 
-  // Interaction Mechanics State
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [visualizerCanvasRef, setVisualizerCanvasRef] = useState<React.MutableRefObject<HTMLCanvasElement | null> | null>(null);
@@ -191,14 +308,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         transactionCategories, budgets, tasks, notes, decks, events, pomodoroLogs,
                         learningLogs, tracks, playlists, musicPlayerState, habits, jobApplications,
                         visionBoardCards, journalEntries, appSettings, engagementLogs, linkResources,
+                        memoryPalaces, codeSnippets, algorithms, bugLogs, labRecords, researchPapers
                     };
                     await addBackup(allData);
-                    console.log('Automated backup successful.');
-
-                    // Rotate backups, keeping the last 7
+                    
+                    // Rotate backups
                     if (backups.length >= 7) {
                         const oldestBackup = backups[backups.length - 1];
-                        console.log(`Deleting old backup from ${new Date(oldestBackup.timestamp).toLocaleString()}`);
                         await deleteBackup(oldestBackup.timestamp);
                     }
                 }
@@ -206,7 +322,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 console.error("Failed to perform automated backup:", error);
             }
         };
-        // Run backup check shortly after app starts
         const timer = setTimeout(handleAutomatedBackup, 5000);
         return () => clearTimeout(timer);
     }, [
@@ -214,8 +329,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       transactionCategories, budgets, tasks, notes, decks, events, pomodoroLogs,
       learningLogs, tracks, playlists, musicPlayerState, habits, jobApplications,
       visionBoardCards, journalEntries, appSettings, engagementLogs, linkResources,
+      memoryPalaces, codeSnippets, algorithms, bugLogs, labRecords, researchPapers
     ]);
-
 
   useEffect(() => {
     // Migration for Tasks from Kanban
@@ -223,7 +338,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newTasksEmpty = tasks.length === 0;
 
     if (oldTasksExist && newTasksEmpty) {
-      console.log('Migrating old Kanban tasks to new Tasks system...');
       const migratedTasks: Task[] = [];
       const migrate = (oldTask: KanbanTask, status: TaskStatus) => {
         let priority: TaskPriority = 'None';
@@ -249,8 +363,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       kanbanBoard.progress.forEach(t => migrate(t, 'In Progress'));
       kanbanBoard.done.forEach(t => migrate(t, 'Done'));
       setTasks(migratedTasks);
-      setKanbanBoard({ backlog: [], progress: [], done: [] }); // Clear old board
-      console.log('Migration complete.');
+      setKanbanBoard({ backlog: [], progress: [], done: [] });
     }
   }, [kanbanBoard, tasks, setTasks, setKanbanBoard]);
 
@@ -266,6 +379,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     tasks, setTasks,
     notes, setNotes,
     decks, setDecks,
+    memoryPalaces, setMemoryPalaces,
     viewingFile, setViewingFile,
     viewingTask, setViewingTask,
     viewingScheduleItem, setViewingScheduleItem,
@@ -287,6 +401,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBackgroundOverlay,
     customWheels, setCustomWheels,
     linkResources, setLinkResources,
+    codeSnippets, setCodeSnippets,
+    algorithms, setAlgorithms,
+    bugLogs, setBugLogs,
+    labRecords, setLabRecords,
+    researchPapers, setResearchPapers,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

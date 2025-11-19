@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import Button from '../ui/Button';
@@ -94,13 +95,20 @@ interface PomodoroTimerProps {
     viewMode?: 'compact' | 'focus'; 
     size?: number; 
     onRunningStateChange?: (isRunning: boolean) => void; 
+    setIsFocusMode: (val: boolean) => void;
 }
 
-const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', size, onRunningStateChange }) => {
+const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', size, onRunningStateChange, setIsFocusMode }) => {
   const { pomodoroLogs, setPomodoroLogs, appSettings, setAppSettings, setEngagementLogs } = useAppContext();
-  const customDurations = appSettings.defaults.pomodoro;
+  const [variant, setVariant] = useState<'classic' | '52/17' | '90-deep'>('classic');
+
+  const durations = useMemo(() => {
+      if (variant === '52/17') return { work: 52, break: 17, deep: 52 };
+      if (variant === '90-deep') return { work: 90, break: 20, deep: 90 };
+      return appSettings.defaults.pomodoro;
+  }, [variant, appSettings.defaults.pomodoro]);
   
-  const [pom, setPom] = useLocalStorage<PomodoroState>('pom', { mode: 'work', remaining: customDurations.work * 60, running: false });
+  const [pom, setPom] = useLocalStorage<PomodoroState>('pom', { mode: 'work', remaining: durations.work * 60, running: false });
   const [sessionStats, setSessionStats] = useState({ focusTime: 0, breakTime: 0, cycles: 0 });
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -111,6 +119,13 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', siz
 
   const formatTime = (sec: number): string => `${Math.floor(sec / 60).toString().padStart(2, '0')}:${(sec % 60).toString().padStart(2, '0')}`;
 
+  // Reset logic when variant changes
+  useEffect(() => {
+      if (!pom.running) {
+          setPom(p => ({ ...p, remaining: durations[p.mode] * 60 }));
+      }
+  }, [variant, durations, setPom, pom.mode, pom.running]);
+
   useEffect(() => {
     onRunningStateChange?.(pom.running);
     if (!pom.running) return;
@@ -120,11 +135,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', siz
         if (p.remaining > 0) {
           const currentMinute = Math.floor((p.remaining - 1) / 60);
           if (currentMinute < lastMinute.current) {
-            setRippleKey(k => k + 1); // Trigger ripple effect
+            setRippleKey(k => k + 1); 
             lastMinute.current = currentMinute;
           }
 
-          if (Math.random() > 0.7) { // Create particles randomly
+          if (Math.random() > 0.7) {
               const newParticle = {
                 id: Math.random(),
                 x: 50 + Math.sin(p.remaining) * (Math.random() * 50 + 40),
@@ -143,56 +158,43 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', siz
         
         setSessionStats(s => {
             if (p.mode === 'work' || p.mode === 'deep') {
-                return { ...s, focusTime: s.focusTime + customDurations[p.mode] };
+                return { ...s, focusTime: s.focusTime + durations[p.mode] };
             }
-            return { ...s, breakTime: s.breakTime + customDurations.break, cycles: s.cycles + 1 };
+            return { ...s, breakTime: s.breakTime + durations.break, cycles: s.cycles + 1 };
         });
 
-        alert('Pomodoro finished!');
+        alert('Session finished!');
         
         const nextMode = (p.mode === 'work' || p.mode === 'deep') ? 'break' : 'work';
-        return { running: false, mode: nextMode, remaining: customDurations[nextMode] * 60 };
+        return { running: false, mode: nextMode, remaining: durations[nextMode] * 60 };
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [pom.running, setPom, customDurations, onRunningStateChange]);
+  }, [pom.running, setPom, durations, onRunningStateChange]);
 
   const setMode = (mode: PomodoroMode) => {
-    setPom({ running: false, mode, remaining: customDurations[mode] * 60 });
-    lastMinute.current = customDurations[mode];
+    setPom({ running: false, mode, remaining: durations[mode] * 60 });
+    lastMinute.current = durations[mode];
   };
   const handleStart = () => { 
       setPom(p => ({ ...p, running: true })); 
       playSound('start');
       lastMinute.current = Math.floor(pom.remaining / 60);
+      if (variant === '90-deep' && viewMode !== 'focus') {
+          setIsFocusMode(true);
+      }
   };
   const handlePause = () => { setPom(p => ({ ...p, running: false })); playSound('pause'); };
   const handleReset = () => { setMode(pom.mode); };
 
-  const handleDurationChange = (mode: PomodoroMode, value: string) => {
-    const newDuration = parseInt(value, 10);
-    if (!isNaN(newDuration) && newDuration > 0) {
-        setAppSettings(prev => ({
-            ...prev,
-            defaults: {
-                ...prev.defaults,
-                pomodoro: { ...prev.defaults.pomodoro, [mode]: newDuration }
-            }
-        }));
-        if (pom.mode === mode && !pom.running) {
-            setPom(p => ({ ...p, remaining: newDuration * 60 }));
-        }
-    }
-  };
-  
   const handleSaveLog = (notes: string) => {
-    const newLog: PomodoroLog = { ts: Date.now(), ...sessionStats, notes };
+    const newLog: PomodoroLog = { ts: Date.now(), ...sessionStats, notes, variant };
     setPomodoroLogs(prev => [newLog, ...prev]);
     
     setEngagementLogs(prev => [...prev, {
         ts: Date.now(),
         activity: 'save_study_session',
-        details: { name: `Pomodoro: ${sessionStats.focusTime} min focus` }
+        details: { name: `Pomodoro (${variant}): ${sessionStats.focusTime} min` }
     }]);
 
     setSessionStats({ focusTime: 0, breakTime: 0, cycles: 0 });
@@ -217,16 +219,28 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', siz
     reader.readAsText(file);
   };
 
-
   const progressPercentage = useMemo(() => {
-    const total = customDurations[pom.mode] * 60;
+    const total = durations[pom.mode] * 60;
     return total <= 0 ? 0 : ((total - pom.remaining) / total) * 100;
-  }, [pom.mode, pom.remaining, customDurations]);
+  }, [pom.mode, pom.remaining, durations]);
   
-  const modes: { key: PomodoroMode, label: string }[] = [{ key: 'work', label: 'Work' }, { key: 'break', label: 'Break' }, { key: 'deep', label: 'Deep Work' }];
+  const modes: { key: PomodoroMode, label: string }[] = [{ key: 'work', label: 'Work' }, { key: 'break', label: 'Break' }];
 
   const timerUI = (isLarge: boolean) => (
-    <div className="flex flex-col items-center gap-4 p-2">
+    <div className="flex flex-col items-center gap-4 p-2 w-full">
+        {!pom.running && (
+            <div className="flex gap-2 mb-2">
+                <select 
+                    value={variant} 
+                    onChange={e => setVariant(e.target.value as any)} 
+                    className="bg-black/30 border border-white/10 rounded text-xs p-1"
+                >
+                    <option value="classic">Classic (25/5)</option>
+                    <option value="52/17">52/17 Flow</option>
+                    <option value="90-deep">90m Deep Work</option>
+                </select>
+            </div>
+        )}
         <div className="flex gap-2 mb-2">
             {modes.map(({key, label}) => <Button key={key} variant="outline" className={pom.mode === key ? 'bg-[rgba(255,255,255,0.2)] text-white border-white/30' : ''} onClick={() => setMode(key)}>{label}</Button>)}
         </div>
@@ -247,7 +261,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', siz
 
   return (
     <div className="flex flex-col h-full">
-        <CardHeader title="Pomodoro Timer" subtitle="Time to focus!" />
+        <CardHeader title="Pomodoro Timer" subtitle={variant === '90-deep' ? "Deep Work Mode" : "Focus & Flow"} />
         <div className="flex-grow flex flex-col items-center justify-center">
             {timerUI(false)}
         </div>
@@ -262,7 +276,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ viewMode = 'compact', siz
                     <div className="space-y-2 max-h-24 overflow-y-auto pr-2">
                         {pomodoroLogs.length === 0 ? <p className="text-xs text-gray-400">No logs yet.</p> : pomodoroLogs.map(log => (
                             <div key={log.ts} className="text-xs p-1 bg-white/5 rounded">
-                                <span>{new Date(log.ts).toLocaleDateString()}: {log.focusTime}min focus, {log.cycles} cycles.</span>
+                                <span>{new Date(log.ts).toLocaleDateString()}: {log.focusTime}min ({log.variant || 'classic'})</span>
                                 {log.notes && <p className="text-gray-400 italic">"{log.notes}"</p>}
                             </div>
                         ))}

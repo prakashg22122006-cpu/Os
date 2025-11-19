@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -34,7 +35,7 @@ const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 const GridIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
     </svg>
 );
 const ListIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -255,7 +256,7 @@ const LinkEditorModal: React.FC<{
                     <Input value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="Title" />
                     <Input value={formData.url} onChange={e => setFormData(f => ({...f, url: e.target.value}))} placeholder="URL" />
                     <textarea value={formData.description} onChange={e => setFormData(f => ({...f, description: e.target.value}))} placeholder="Description (optional)..." rows={3} className="bg-transparent border border-[var(--input-border-color)] p-2 rounded-lg w-full text-sm" />
-                    <select value={formData.type} onChange={e => setFormData(f => ({...f, type: e.target.value}))} className="bg-transparent border border-[var(--input-border-color)] rounded-lg p-2 w-full text-sm">
+                    <select value={formData.type} onChange={e => setFormData(f => ({...f, type: e.target.value as 'link' | 'tool'}))} className="bg-transparent border border-[var(--input-border-color)] rounded-lg p-2 w-full text-sm">
                         <option value="link" className="bg-[var(--option-bg-color)]">Study Material / Link</option>
                         <option value="tool" className="bg-[var(--option-bg-color)]">Tool</option>
                     </select>
@@ -270,13 +271,15 @@ const LinkEditorModal: React.FC<{
 };
 
 
-const EmptyState: React.FC<{ onUpload: () => void; onAddLink: () => void; }> = ({ onUpload, onAddLink }) => (
+const EmptyState: React.FC<{ onUploadClick: () => void; onAddLink: () => void; }> = ({ onUploadClick, onAddLink }) => (
     <div className="h-[40rem] flex flex-col items-center justify-center text-center text-[var(--text-color-dim)]">
         <FilePlusIcon className="w-20 h-20 opacity-30 mb-4" />
         <h3 className="text-xl font-semibold text-[var(--text-color)]">Your Digital Resource Cabinet</h3>
         <p className="max-w-md mt-2 mb-6">Upload lecture notes, save links to study materials, and keep track of useful tools—all in one place.</p>
         <div className="flex gap-4">
-            <Button onClick={onUpload} className="flex items-center gap-2"><UploadIcon /> Upload File</Button>
+            <button onClick={onUploadClick} className="flex items-center gap-2 bg-[var(--accent-color)] text-[var(--accent-text-color)] px-3 py-2 rounded-lg cursor-pointer hover:opacity-90 transition-all duration-200 font-semibold">
+                <UploadIcon /> Upload File
+            </button>
             <Button onClick={onAddLink} className="flex items-center gap-2"><LinkIcon /> Add Link/Tool</Button>
         </div>
     </div>
@@ -295,6 +298,7 @@ const ResourceManager: React.FC = () => {
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [editingLink, setEditingLink] = useState<Partial<LinkResource> | null>(null);
+    const importFileRef = useRef<HTMLInputElement>(null);
 
     const loadFiles = useCallback(async () => { setAllDbFiles(await getFiles()); }, []);
     useEffect(() => { loadFiles(); }, [loadFiles]);
@@ -336,7 +340,12 @@ const ResourceManager: React.FC = () => {
         try {
             for (const file of Array.from(filesToUpload)) { await addFile(file); }
         } catch (error) { alert("An error occurred during upload."); }
-        finally { await loadFiles(); setIsUploading(false); }
+        finally { 
+            await loadFiles(); 
+            setIsUploading(false);
+            // Reset input value so onChange triggers again even if the same file is selected
+            if (fileInputRef.current) fileInputRef.current.value = ''; 
+        }
     };
     
     const handleUpdateFile = async (id: number, updates: Partial<Pick<StoredFile, 'name' | 'tags' | 'folder'>>) => {
@@ -386,93 +395,106 @@ const ResourceManager: React.FC = () => {
         handleUpload(e.dataTransfer.files);
     };
     
-    if (allResources.length === 0 && !isUploading) {
-        return <EmptyState onUpload={() => fileInputRef.current?.click()} onAddLink={() => setEditingLink({})} />;
-    }
-
     return (
-        <div className="flex flex-col md:flex-row gap-4 h-[40rem]">
-            {editingLink && <LinkEditorModal resource={editingLink} onSave={handleSaveLink} onClose={() => setEditingLink(null)} />}
-            
-            <div className="w-full md:w-1/4 border-r border-[var(--card-border-color)] pr-4 flex flex-col">
-                 <div className="flex gap-2 w-full mb-4">
-                    <Button onClick={() => setEditingLink({})} className="flex-1 flex items-center justify-center gap-2"><LinkIcon className="h-4 w-4"/> Add Link</Button>
-                    <Button variant="outline" onClick={handleNewFolder} className="flex-1 flex items-center justify-center gap-2"><FolderIcon /> New Folder</Button>
-                </div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-[var(--text-color-dim)]"><FolderIcon /> Folders</h4>
-                <div className="space-y-1 mb-4">
-                    {folders.map(f => (
-                        <button key={f} onClick={() => setSelectedFolder(f)} className={`w-full text-left p-1.5 rounded text-sm flex items-center gap-2 ${selectedFolder === f ? 'bg-[var(--accent-color)]/20 text-[var(--accent-color)] font-semibold' : 'hover:bg-white/5 text-[var(--text-color-dim)]'}`}>
-                            {f === '/' ? '🗂️' : <FolderIcon className="h-4 w-4"/>} {f === '/' ? 'All Resources' : f}
-                        </button>
-                    ))}
-                </div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-[var(--text-color-dim)]"><TagIcon /> Tags</h4>
-                <div className="flex flex-wrap gap-1">
-                    {allTags.map(tag => (
-                        <button key={tag} onClick={() => setSelectedTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag])} 
-                        className={`text-xs px-2 py-1 rounded-full border ${selectedTags.includes(tag) ? 'bg-[var(--accent-color)]/30 text-[var(--accent-color)] border-[var(--accent-color)]/50' : 'bg-white/5 border-transparent'}`}>
-                            {tag}
-                        </button>
-                    ))}
-                </div>
-            </div>
+        <>
+            {/* Inputs must be present in DOM for both EmptyState label and Button clicks */}
+            <input 
+                id="file-upload-empty" 
+                type="file" 
+                multiple 
+                ref={fileInputRef} 
+                onChange={e => handleUpload(e.target.files)} 
+                className="hidden" 
+                style={{ display: 'none' }} 
+            />
+            <input type="file" multiple ref={importFileRef} onChange={e => handleUpload(e.target.files)} className="hidden" />
 
-            <div className="w-full md:w-2/4 flex flex-col">
-                <div className="flex gap-2 mb-2 flex-shrink-0">
-                    <div className="relative flex-grow">
-                        <SearchIcon className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--text-color-dim)]" />
-                        <Input placeholder="Search resources..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10" />
+            {allResources.length === 0 && !isUploading ? (
+                <EmptyState onUploadClick={() => fileInputRef.current?.click()} onAddLink={() => setEditingLink({})} />
+            ) : (
+                <div className="flex flex-col md:flex-row gap-4 h-[40rem]">
+                    {editingLink && <LinkEditorModal resource={editingLink} onSave={handleSaveLink} onClose={() => setEditingLink(null)} />}
+                    
+                    <div className="w-full md:w-1/4 border-r border-[var(--card-border-color)] pr-4 flex flex-col">
+                         <div className="flex gap-2 w-full mb-4">
+                            <Button onClick={() => setEditingLink({})} className="flex-1 flex items-center justify-center gap-2"><LinkIcon className="h-4 w-4"/> Add Link</Button>
+                            <Button variant="outline" onClick={handleNewFolder} className="flex-1 flex items-center justify-center gap-2"><FolderIcon /> New Folder</Button>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-[var(--text-color-dim)]"><FolderIcon /> Folders</h4>
+                        <div className="space-y-1 mb-4">
+                            {folders.map(f => (
+                                <button key={f} onClick={() => setSelectedFolder(f)} className={`w-full text-left p-1.5 rounded text-sm flex items-center gap-2 ${selectedFolder === f ? 'bg-[var(--accent-color)]/20 text-[var(--accent-color)] font-semibold' : 'hover:bg-white/5 text-[var(--text-color-dim)]'}`}>
+                                    {f === '/' ? '🗂️' : <FolderIcon className="h-4 w-4"/>} {f === '/' ? 'All Resources' : f}
+                                </button>
+                            ))}
+                        </div>
+                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-[var(--text-color-dim)]"><TagIcon /> Tags</h4>
+                        <div className="flex flex-wrap gap-1">
+                            {allTags.map(tag => (
+                                <button key={tag} onClick={() => setSelectedTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag])} 
+                                className={`text-xs px-2 py-1 rounded-full border ${selectedTags.includes(tag) ? 'bg-[var(--accent-color)]/30 text-[var(--accent-color)] border-[var(--accent-color)]/50' : 'bg-white/5 border-transparent'}`}>
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex bg-[var(--card-bg-gradient-end)] border border-[var(--input-border-color)] rounded-lg p-0.5">
-                        <Button variant={viewMode === 'list' ? 'primary' : 'outline'} onClick={() => setViewMode('list')} className="!p-1.5 !border-0"><ListIcon /></Button>
-                        <Button variant={viewMode === 'grid' ? 'primary' : 'outline'} onClick={() => setViewMode('grid')} className="!p-1.5 !border-0"><GridIcon /></Button>
+
+                    <div className="w-full md:w-2/4 flex flex-col">
+                        <div className="flex gap-2 mb-2 flex-shrink-0">
+                            <div className="relative flex-grow">
+                                <SearchIcon className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--text-color-dim)]" />
+                                <Input placeholder="Search resources..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10" />
+                            </div>
+                            <div className="flex bg-[var(--card-bg-gradient-end)] border border-[var(--input-border-color)] rounded-lg p-0.5">
+                                <Button variant={viewMode === 'list' ? 'primary' : 'outline'} onClick={() => setViewMode('list')} className="!p-1.5 !border-0"><ListIcon /></Button>
+                                <Button variant={viewMode === 'grid' ? 'primary' : 'outline'} onClick={() => setViewMode('grid')} className="!p-1.5 !border-0"><GridIcon /></Button>
+                            </div>
+                            <Button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2"><UploadIcon /> Upload</Button>
+                        </div>
+                        <div onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }} onDragLeave={() => setIsDraggingOver(false)} onDrop={handleDrop} className="relative flex-grow border border-dashed border-[var(--card-border-color)] rounded-lg p-2 overflow-y-auto">
+                            {isDraggingOver && <div className="absolute inset-0 bg-[var(--accent-color)]/20 backdrop-blur-sm z-10 flex items-center justify-center text-lg font-semibold border-2 border-dashed border-[var(--accent-color)] rounded-lg"><UploadIcon className="mr-2"/> Drop files to upload</div>}
+                            {isUploading ? <p className="text-center p-8">Uploading...</p> : (
+                                viewMode === 'grid' ? (
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                        {filteredResources.map(res => (
+                                            <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`aspect-square bg-[var(--card-bg-gradient-start)] rounded-lg overflow-hidden cursor-pointer border-2 ${selectedResourceId === res.id && selectedResourceType === res.type ? 'border-[var(--accent-color)]' : 'border-transparent'}`}>
+                                                <div className="w-full h-full relative group">
+                                                    <ResourceThumbnail resource={res} />
+                                                    <p className="absolute bottom-0 left-0 right-0 text-xs truncate p-1 bg-black/50 text-white">{res.title}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {filteredResources.map(res => (
+                                            <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selectedResourceId === res.id && selectedResourceType === res.type ? 'bg-[var(--accent-color)]/20' : 'hover:bg-white/5'}`}>
+                                                <div className="text-2xl">{getResourceIcon(res.type, res.mimeType)}</div>
+                                                <div className="flex-grow min-w-0"><p className="text-sm font-semibold truncate">{res.title}</p><p className="text-xs text-[var(--text-color-dim)]">{formatBytes(res.size)}</p></div>
+                                                <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
+                                                    {(res.tags || []).map(t => <span key={t} className="text-xs bg-white/10 px-1.5 py-0.5 rounded-full">{t}</span>)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
                     </div>
-                    <Button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2"><UploadIcon /> Upload</Button>
-                    <input type="file" multiple ref={fileInputRef} onChange={e => handleUpload(e.target.files)} className="hidden" />
-                </div>
-                <div onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }} onDragLeave={() => setIsDraggingOver(false)} onDrop={handleDrop} className="relative flex-grow border border-dashed border-[var(--card-border-color)] rounded-lg p-2 overflow-y-auto">
-                    {isDraggingOver && <div className="absolute inset-0 bg-[var(--accent-color)]/20 backdrop-blur-sm z-10 flex items-center justify-center text-lg font-semibold border-2 border-dashed border-[var(--accent-color)] rounded-lg"><UploadIcon className="mr-2"/> Drop files to upload</div>}
-                    {isUploading ? <p className="text-center p-8">Uploading...</p> : (
-                        viewMode === 'grid' ? (
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                {filteredResources.map(res => (
-                                    <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`aspect-square bg-[var(--card-bg-gradient-start)] rounded-lg overflow-hidden cursor-pointer border-2 ${selectedResourceId === res.id && selectedResourceType === res.type ? 'border-[var(--accent-color)]' : 'border-transparent'}`}>
-                                        <div className="w-full h-full relative group">
-                                            <ResourceThumbnail resource={res} />
-                                            <p className="absolute bottom-0 left-0 right-0 text-xs truncate p-1 bg-black/50 text-white">{res.title}</p>
-                                        </div>
-                                    </div>
-                                ))}
+
+                    {selectedResource ? (
+                        <DetailsPanel resource={selectedResource} onUpdateFile={handleUpdateFile} onUpdateLink={handleUpdateLink} onDeleteFile={handleDeleteFile} onDeleteLink={handleDeleteLink} allFolders={folders} />
+                    ) : (
+                        <div className="w-full md:w-1/4 flex items-center justify-center bg-[var(--card-bg-gradient-start)] rounded-lg text-[var(--text-color-dim)] text-center p-4 border border-[var(--card-border-color)]">
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
+                                Select a resource to see details
                             </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {filteredResources.map(res => (
-                                    <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selectedResourceId === res.id && selectedResourceType === res.type ? 'bg-[var(--accent-color)]/20' : 'hover:bg-white/5'}`}>
-                                        <div className="text-2xl">{getResourceIcon(res.type, res.mimeType)}</div>
-                                        <div className="flex-grow min-w-0"><p className="text-sm font-semibold truncate">{res.title}</p><p className="text-xs text-[var(--text-color-dim)]">{formatBytes(res.size)}</p></div>
-                                        <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
-                                            {(res.tags || []).map(t => <span key={t} className="text-xs bg-white/10 px-1.5 py-0.5 rounded-full">{t}</span>)}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )
+                        </div>
                     )}
                 </div>
-            </div>
-
-            {selectedResource ? (
-                <DetailsPanel resource={selectedResource} onUpdateFile={handleUpdateFile} onUpdateLink={handleUpdateLink} onDeleteFile={handleDeleteFile} onDeleteLink={handleDeleteLink} allFolders={folders} />
-            ) : (
-                <div className="w-full md:w-1/4 flex items-center justify-center bg-[var(--card-bg-gradient-start)] rounded-lg text-[var(--text-color-dim)] text-center p-4 border border-[var(--card-border-color)]">
-                    <div>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
-                        Select a resource to see details
-                    </div>
-                </div>
             )}
-        </div>
+        </>
     );
 };
 

@@ -1,5 +1,5 @@
 {
-  "name": "Copy of Studyos - Personal Study OS",
-  "description": "A comprehensive personal operating system designed for students to manage their academic life, projects, finances, and productivity, all in one place. It features a dashboard with a pomodoro timer, task list, study progress tracker, and more, along with a systems view for in-depth management of courses, GPA, projects, flashcards, and finances.",
+  "name": "CS Student Workspace",
+  "description": "The ultimate operating system for Computer Science students. Features academic tracking, coding snippet libraries, algorithm databases, project management, and distraction-free study tools.",
   "requestFramePermissions": []
 }

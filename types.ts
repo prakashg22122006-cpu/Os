@@ -1,5 +1,4 @@
 
-
 export type EngagementActivity = 
   | 'app_session_started'
   | 'view_resource'
@@ -194,7 +193,7 @@ export interface Flashcard {
   nextReview: number; // timestamp
   interval: number; // days
   easeFactor: number; // starts at 2.5
-  status: 'new' | 'learning' | 'review';
+  status: 'new' | 'learning' | 'review' | 'failed';
 }
 
 export interface Deck {
@@ -202,19 +201,62 @@ export interface Deck {
   cards: Flashcard[];
 }
 
+export interface MemoryLocus {
+  id: number;
+  name: string; // e.g., "Front Door", "Sofa"
+  x: number; // relative position %
+  y: number; // relative position %
+  linkedCardId?: number;
+}
+
+export interface MemoryPalace {
+  id: number;
+  name: string;
+  bgImageId?: number;
+  loci: MemoryLocus[];
+}
+
+export type NoteTemplate = 'standard' | 'cornell' | 'zettel' | 'mindmap' | 'blurting' | 'feynman';
+
+export interface MindMapNode {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  children: string[]; // ids of children
+}
 
 export interface Note {
   id: number;
   title: string;
-  content: string;
+  content: string; // Used for Standard, Zettel
+  
+  // Cornell specific
+  cornellCues?: string;
+  cornellSummary?: string;
+  
+  // Mindmap specific
+  mindMapData?: {
+      nodes: MindMapNode[];
+      rootId: string;
+  };
+
+  // Blurting specific
+  blurtingPrompt?: string;
+  blurtingAnswer?: string; // what user typed
+
+  template: NoteTemplate; 
+  
   attachments: number[];
   ts: number; // createdAt
   updatedAt: number;
   tags?: string[];
   isPinned?: boolean;
   color?: string; // e.g., 'bg-yellow-500'
-  // for migration
   category?: string;
+  
+  // Zettelkasten linking
+  links?: number[]; // IDs of linked notes
 }
 
 
@@ -251,6 +293,7 @@ export interface PomodoroLog {
   focusTime: number; // in minutes
   breakTime: number; // in minutes
   cycles: number;
+  variant: 'classic' | '52/17' | '90-deep';
   notes?: string;
 }
 
@@ -330,6 +373,7 @@ export interface Task {
   subtasks: Subtask[];
   dependencies: number[]; // array of other Task IDs
   tags?: string[];
+  difficulty?: number; // 1-5 for Hard-First Method
 }
 
 export type Mood = 'Happy' | 'Productive' | 'Neutral' | 'Sad' | 'Stressed';
@@ -422,4 +466,67 @@ export interface LinkResource {
   ts: number;
   tags?: string[];
   folder?: string;
+}
+
+// --- CS WORKSPACE TYPES ---
+
+export interface SnippetVersion {
+    id: string;
+    ts: number;
+    code: string;
+    label?: string;
+}
+
+export interface CodeSnippet {
+    id: number;
+    title: string;
+    language: string;
+    code: string;
+    tags: string[];
+    category?: string;
+    ts: number;
+    versions?: SnippetVersion[];
+}
+
+export interface Algorithm {
+    id: number;
+    name: string;
+    type: 'Sorting' | 'Searching' | 'Graph' | 'DP' | 'Tree' | 'Other';
+    complexityTime: string; // Big O
+    complexitySpace: string; // Big O
+    description?: string;
+    codeExample?: string; // Usage example
+    status: 'To Learn' | 'Learning' | 'Mastered';
+    notes?: string;
+}
+
+export interface BugLog {
+    id: number;
+    issue: string;
+    severity: 'Low' | 'Medium' | 'High' | 'Critical';
+    status: 'Open' | 'In Progress' | 'Resolved';
+    project?: string;
+    stepsToReproduce?: string;
+    resolution?: string;
+    ts: number;
+}
+
+export interface LabRecord {
+    id: number;
+    name: string;
+    subject: string;
+    date: string;
+    procedure?: string;
+    observations?: string;
+    ts: number;
+}
+
+export interface ResearchPaper {
+    id: number;
+    title: string;
+    field: string;
+    authors?: string;
+    link?: string;
+    notes?: string;
+    ts: number;
 }
