@@ -188,7 +188,13 @@ const GlobalAudioPlayer: React.FC = () => {
         let nextIndex;
 
         if (isShuffled) {
-            nextIndex = Math.floor(Math.random() * playQueue.length);
+            if (playQueue.length > 1) {
+                do {
+                    nextIndex = Math.floor(Math.random() * playQueue.length);
+                } while (playQueue[nextIndex] === currentTrackId);
+            } else {
+                nextIndex = 0;
+            }
         } else {
             nextIndex = (currentIndex + 1) % playQueue.length;
         }
