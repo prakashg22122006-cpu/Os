@@ -8,8 +8,10 @@ import { addFile, getFile } from '../../utils/db';
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const timeToMinutes = (time: string): number => {
-    if(!time || typeof time !== 'string' || !time.includes(':')) return 0;
-    const [hours, minutes] = time.split(':').map(Number);
+    if(!time || typeof time !== 'string') return 0;
+    const parts = time.split(':');
+    if (parts.length < 2) return 0;
+    const [hours, minutes] = parts.map(Number);
     if (isNaN(hours) || isNaN(minutes)) return 0;
     return hours * 60 + minutes;
 };

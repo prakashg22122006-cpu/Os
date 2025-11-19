@@ -23,6 +23,7 @@ const TaskItem: React.FC<{ task: Task; isSelected: boolean; onSelect: (id: numbe
     const completedSubtasks = subtasks.filter(st => st.completed).length;
     const totalSubtasks = subtasks.length;
     const priorityColor = PRIORITY_STYLES[task.priority || 'None'] || PRIORITY_STYLES['None'];
+    const progressColor = completedSubtasks === totalSubtasks ? 'bg-green-500' : 'bg-[var(--grad-1)]';
 
     return (
         <div 
@@ -43,7 +44,7 @@ const TaskItem: React.FC<{ task: Task; isSelected: boolean; onSelect: (id: numbe
                 {totalSubtasks > 0 && (
                     <div className="flex items-center gap-2 mt-1">
                         <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
-                             <div className="h-full bg-[var(--grad-1)]" style={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }} />
+                             <div className={`h-full ${progressColor} transition-all duration-300`} style={{ width: `${(completedSubtasks/totalSubtasks)*100}%` }} />
                         </div>
                         <span className="text-[9px] text-gray-500">{completedSubtasks}/{totalSubtasks}</span>
                     </div>
@@ -71,7 +72,7 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
 
     const tasksByStatus = useMemo(() => {
         const grouped: Record<TaskStatus, Task[]> = { Backlog: [], 'In Progress': [], Review: [], Done: [] };
-        const sortedTasks = [...tasks].sort((a, b) => {
+        const sortedTasks = [...(tasks || [])].sort((a, b) => {
             const priorityDiff = (PRIORITY_ORDER[b.priority] || 1) - (PRIORITY_ORDER[a.priority] || 1);
             if (priorityDiff !== 0) return priorityDiff;
             return b.updatedAt - a.updatedAt;
@@ -170,6 +171,7 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
                                 const subtasks = task.subtasks || [];
                                 const completed = subtasks.filter(s => s.completed).length;
                                 const total = subtasks.length;
+                                const progressColor = completed === total ? 'bg-green-500' : 'bg-gray-400';
                                 return (
                                     <div 
                                         key={task.id}
@@ -188,7 +190,7 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
                                             {total > 0 ? (
                                                 <div className="flex items-center gap-1.5 bg-black/30 px-1.5 py-0.5 rounded">
                                                     <div className="w-8 h-1 bg-gray-600 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-gray-400" style={{ width: `${(completed/total)*100}%` }}></div>
+                                                        <div className={`h-full ${progressColor}`} style={{ width: `${(completed/total)*100}%` }}></div>
                                                     </div>
                                                     <span className="text-[9px] text-gray-400 font-mono">{completed}/{total}</span>
                                                 </div>

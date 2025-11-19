@@ -30,9 +30,10 @@ const PRIORITY_ORDER: Record<Task['priority'], number> = {
 const SubtaskProgressBar: React.FC<{ total: number, completed: number }> = ({ total, completed }) => {
     if (total === 0) return null;
     const percentage = (completed / total) * 100;
+    const colorClass = percentage === 100 ? 'bg-green-500' : 'bg-[var(--grad-1)]';
     return (
         <div className="w-full h-1.5 bg-gray-700 rounded-full mt-2 overflow-hidden">
-            <div className="h-full bg-[var(--grad-1)] transition-all duration-300" style={{ width: `${percentage}%` }} />
+            <div className={`h-full ${colorClass} transition-all duration-300`} style={{ width: `${percentage}%` }} />
         </div>
     );
 };
@@ -168,7 +169,7 @@ const ListView: React.FC<{ tasks: Task[]; onTaskClick: (task: Task) => void; sor
                                     {subtasks.length > 0 ? (
                                         <div className="flex items-center gap-2">
                                             <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                                                <div className="h-full bg-[var(--grad-1)]" style={{ width: `${(completedSubtasks/subtasks.length)*100}%` }} />
+                                                <div className={`h-full transition-all duration-300 ${completedSubtasks === subtasks.length ? 'bg-green-500' : 'bg-[var(--grad-1)]'}`} style={{ width: `${(completedSubtasks/subtasks.length)*100}%` }} />
                                             </div>
                                             <span className="text-xs">{completedSubtasks}/{subtasks.length}</span>
                                         </div>

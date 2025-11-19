@@ -64,6 +64,12 @@ const TaskViewerModal: React.FC = () => {
         if (!taskData) return;
         handleChange('subtasks', (taskData.subtasks || []).filter(st => st.id !== id));
     };
+
+    const updateSubtaskTitle = (id: number, title: string) => {
+        if (!taskData) return;
+        const updatedSubtasks = (taskData.subtasks || []).map(st => st.id === id ? { ...st, title } : st);
+        handleChange('subtasks', updatedSubtasks);
+    };
     
     const handleFileDrop = async (files: FileList) => {
         if (!files || files.length === 0 || !taskData) return;
@@ -103,12 +109,23 @@ const TaskViewerModal: React.FC = () => {
                                 <h4 className="text-sm font-semibold text-text-dim mb-2">Subtasks</h4>
                                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                                     {(taskData.subtasks || []).map(st => (
-                                        <div key={st.id} className="flex items-center justify-between p-2 bg-black/30 rounded group">
-                                            <label className="flex items-center gap-3 cursor-pointer">
-                                                <input type="checkbox" checked={st.completed} onChange={() => toggleSubtask(st.id)} className="w-4 h-4 rounded bg-transparent border-border-color text-[var(--grad-5)] focus:ring-0" />
-                                                <span className={`${st.completed ? 'line-through text-text-dim' : ''}`}>{st.title}</span>
-                                            </label>
-                                            <button className="text-text-dim opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeSubtask(st.id)}>×</button>
+                                        <div key={st.id} className="flex items-center justify-between p-2 bg-black/30 rounded group hover:bg-black/40 transition-colors">
+                                            <div className="flex items-center gap-3 flex-grow">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={st.completed} 
+                                                    onChange={() => toggleSubtask(st.id)} 
+                                                    className="w-4 h-4 rounded bg-transparent border-border-color text-[var(--grad-5)] focus:ring-0 cursor-pointer" 
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={st.title}
+                                                    onChange={(e) => updateSubtaskTitle(st.id, e.target.value)}
+                                                    className={`bg-transparent border-none outline-none focus:ring-0 p-0 w-full text-sm ${st.completed ? 'line-through text-text-dim' : 'text-gray-200'}`}
+                                                    placeholder="Subtask..."
+                                                />
+                                            </div>
+                                            <button className="text-text-dim opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400 px-2" onClick={() => removeSubtask(st.id)}>×</button>
                                         </div>
                                     ))}
                                 </div>

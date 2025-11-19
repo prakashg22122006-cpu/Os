@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -362,7 +363,7 @@ const FileManager: React.FC = () => {
             setLinkResources(prev => prev.map(l => l.id === resourceData.id ? {...l, ...resourceData} : l));
         } else { // Create new
             const newLink: LinkResource = { ...resourceData, id: Date.now(), ts: Date.now() };
-            setLinkResources(prev => [newLink, ...prev]);
+            setLinkResources((prev: LinkResource[]) => [newLink, ...prev]);
         }
     };
 

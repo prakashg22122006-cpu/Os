@@ -102,10 +102,10 @@ const CSWorkspace: React.FC = () => {
     const renderContent = () => {
         switch (activePageId) {
             case 'home': return <HomePage />;
-            case 'algorithms': return <div className="h-full min-h-[500px]"><CodeEditorWidget /></div>;
-            case 'projects': return <div className="h-full min-h-[500px]"><TaskManager /></div>;
-            case 'notes': return <div className="h-full min-h-[500px]"><NotesManager /></div>;
-            case 'flashcards': return <div className="h-full min-h-[500px]"><FlashcardManager /></div>;
+            case 'algorithms': return <div className="h-full"><CodeEditorWidget /></div>;
+            case 'projects': return <div className="h-full"><TaskManager /></div>;
+            case 'notes': return <div className="h-full"><NotesManager /></div>;
+            case 'flashcards': return <div className="h-full"><FlashcardManager /></div>;
             default: return <div>Page not found</div>;
         }
     };
@@ -153,8 +153,8 @@ const CSWorkspace: React.FC = () => {
                 </div>
 
                 {/* Content Body */}
-                <div className="flex-grow overflow-y-auto px-12 pt-12 pb-8 custom-scrollbar">
-                    <header className="mb-8">
+                <div className="flex-grow overflow-y-auto px-12 pt-12 pb-8 custom-scrollbar flex flex-col">
+                    <header className="mb-8 flex-shrink-0">
                         <h1 className="text-4xl font-bold text-white mb-2">{activePage.title}</h1>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                             <span>Workspace</span>
@@ -164,7 +164,7 @@ const CSWorkspace: React.FC = () => {
                         <p className="text-gray-400 mt-4 max-w-2xl leading-relaxed">{activePage.description}</p>
                     </header>
                     
-                    <div className="h-full min-h-[400px] animate-fade-in">
+                    <div className="flex-grow animate-fade-in min-h-[400px] flex flex-col">
                         {renderContent()}
                     </div>
                 </div>
