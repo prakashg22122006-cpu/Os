@@ -81,16 +81,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setIsFocusMode }) => {
     const gridColsClass = useMemo(() => appSettings.dashboardColumns === '3' ? 'xl:grid-cols-3' : 'xl:grid-cols-2', [appSettings.dashboardColumns]);
     const fullScreenWidget = useMemo(() => fullScreenWidgetId ? dashboardLayout.find(w => w.id === fullScreenWidgetId) : null, [fullScreenWidgetId, dashboardLayout]);
 
+    const sortedWidgetIds = useMemo(() =>
+        dashboardLayout.map(w => w.id).sort(),
+        [dashboardLayout]
+    );
+
     return (
         <>
             <div className={`grid grid-cols-1 lg:grid-cols-2 ${gridColsClass}`} style={{ gap: 'var(--widget-gap)' }}>
-                {dashboardLayout.map(({ id, Component, settings }, index) => (
-                    <div
-                        key={id}
-                        className={`xl:col-span-${settings?.colSpan || 1} animate-in`}
-                        style={{ animationDelay: `${index * 70}ms` }}
-                    >
-                        <Card
+                {dashboardLayout.map(({ id, Component, settings }) => {
+                    const animationIndex = sortedWidgetIds.indexOf(id);
+                    return (
+                        <div
+                            key={id}
+                            className={`xl:col-span-${settings?.colSpan || 1} animate-in`}
+                            style={{ animationDelay: `${animationIndex * 70}ms` }}
+                        >
+                            <Card
                             widgetName={settings?.name || 'Widget'}
                             isMinimized={!!settings?.minimized}
                             onToggleMinimize={() => handleWidgetSettingChange(id, { minimized: !settings?.minimized })}
@@ -101,8 +108,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setIsFocusMode }) => {
                                 setIsFocusMode={setIsFocusMode}
                             />
                         </Card>
-                    </div>
-                ))}
+                        </div>
+                    );
+                })}
             </div>
             {fullScreenWidget && (
                 <FullScreenWrapper
