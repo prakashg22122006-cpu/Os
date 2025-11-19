@@ -115,14 +115,14 @@ const CourseDetailPanel: React.FC<{
         // Use spread and defaults to safely handle potentially missing arrays in legacy data
         setLocalCourse({
             ...course,
-            assignments: course.assignments || [],
-            exams: course.exams || [],
-            resources: course.resources || [],
-            modules: course.modules || [],
-            quizzes: course.quizzes || [],
-            attendance: course.attendance || []
+            assignments: course?.assignments || [],
+            exams: course?.exams || [],
+            resources: course?.resources || [],
+            modules: course?.modules || [],
+            quizzes: course?.quizzes || [],
+            attendance: course?.attendance || []
         });
-        if (course.syllabusFileId) {
+        if (course?.syllabusFileId) {
             getFile(course.syllabusFileId).then(fileData => {
                 if (fileData) setSyllabusFileName(fileData.name);
             })
@@ -186,6 +186,8 @@ const CourseDetailPanel: React.FC<{
         }
     };
     
+    if (!localCourse) return <div>Loading course details...</div>;
+
     return (
         <div className="h-full flex flex-col">
             <div className="p-4 pb-0">
