@@ -49,6 +49,58 @@ const SemesterEditModal: React.FC<{ semester: Semester, onSave: (data: Partial<S
     );
 };
 
+const CourseAddModal: React.FC<{ onSave: (course: Course) => void, onClose: () => void }> = ({ onSave, onClose }) => {
+    const [name, setName] = useState('');
+    const [credits, setCredits] = useState<number>(3);
+    const [grade, setGrade] = useState('');
+
+    const handleSave = () => {
+        if (!name.trim()) return alert('Course name is required');
+        const newCourse: Course = {
+            name,
+            credits,
+            grade,
+            attendance: [],
+            assignments: [],
+            exams: [],
+            resources: [],
+            modules: [],
+            quizzes: []
+        };
+        onSave(newCourse);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[var(--grad-1)]/20 rounded-xl shadow-2xl w-full max-w-md flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <header className="p-3 border-b border-white/10">
+                    <h4 className="font-semibold text-lg">Add New Course</h4>
+                </header>
+                <main className="p-4 space-y-3">
+                    <div>
+                         <label className="text-xs text-gray-400 mb-1 block">Course Name</label>
+                         <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Calculus I" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                         <div>
+                            <label className="text-xs text-gray-400 mb-1 block">Credits</label>
+                            <Input type="number" value={credits} onChange={e => setCredits(Number(e.target.value))} placeholder="Credits" />
+                         </div>
+                         <div>
+                            <label className="text-xs text-gray-400 mb-1 block">Current Grade</label>
+                            <Input value={grade} onChange={e => setGrade(e.target.value)} placeholder="Grade (opt)" />
+                         </div>
+                    </div>
+                </main>
+                <footer className="p-3 flex gap-2 justify-end border-t border-white/10">
+                    <Button variant="glass" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleSave}>Add Course</Button>
+                </footer>
+            </div>
+        </div>
+    );
+};
+
 const CourseDetailPanel: React.FC<{
     course: Course;
     onUpdate: (updatedCourse: Course) => void;
@@ -155,6 +207,16 @@ const CourseDetailPanel: React.FC<{
                                      <Input value={localCourse.instructor || ''} onChange={e => handleChange('instructor', e.target.value)} placeholder="Instructor Name" />
                                      <Input value={localCourse.room || ''} onChange={e => handleChange('room', e.target.value)} placeholder="Room / Location" />
                                      <Input value={localCourse.schedule || ''} onChange={e => handleChange('schedule', e.target.value)} placeholder="Schedule (e.g. Mon 9am)" />
+                                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                                         <div>
+                                            <label className="text-[10px] text-gray-500 uppercase">Credits</label>
+                                            <Input type="number" value={localCourse.credits} onChange={e => handleChange('credits', parseFloat(e.target.value))} placeholder="Credits" />
+                                         </div>
+                                         <div>
+                                            <label className="text-[10px] text-gray-500 uppercase">Grade</label>
+                                            <Input value={localCourse.grade} onChange={e => handleChange('grade', e.target.value)} placeholder="Grade" />
+                                         </div>
+                                     </div>
                                  </div>
                              </Card>
                              <Card title="Syllabus">
@@ -247,6 +309,7 @@ const AcademicsManager: React.FC = () => {
     const [isFullScreen, setIsFullScreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
+    const [addingCourseSemIndex, setAddingCourseSemIndex] = useState<number | null>(null);
 
 
     const handleSelectCourse = (semIndex: number, courseIndex: number) => {
@@ -292,11 +355,10 @@ const AcademicsManager: React.FC = () => {
         }
     };
 
-    const addCourse = (semIndex: number) => {
-        const name = prompt("Enter new course name:");
-        if (name) {
-            const newCourse: Course = { name, credits: 3, grade: '', attendance: [], assignments: [], exams: [], resources: [], modules: [], quizzes: [] };
-            setSemesters(prev => prev.map((s, si) => si === semIndex ? { ...s, courses: [...s.courses, newCourse] } : s));
+    const handleSaveNewCourse = (course: Course) => {
+        if (addingCourseSemIndex !== null) {
+            setSemesters(prev => prev.map((s, si) => si === addingCourseSemIndex ? { ...s, courses: [...s.courses, course] } : s));
+            setAddingCourseSemIndex(null);
         }
     };
 
@@ -313,6 +375,13 @@ const AcademicsManager: React.FC = () => {
                     onSave={(data) => handleUpdateSemester(editingSemester.name, data)}
                 />
             )}
+            {addingCourseSemIndex !== null && (
+                <CourseAddModal 
+                    onSave={handleSaveNewCourse}
+                    onClose={() => setAddingCourseSemIndex(null)}
+                />
+            )}
+
             <div className="flex justify-between items-center mb-4 px-4 pt-4">
                 <div className="flex gap-2">
                     <Button variant="glass" onClick={addSemester}>+ New Semester</Button>
@@ -339,7 +408,7 @@ const AcademicsManager: React.FC = () => {
                                         {course.name}
                                     </button>
                                 ))}
-                                <Button variant="glass" className="w-full text-xs" onClick={() => addCourse(semIndex)}>+ Add Course</Button>
+                                <Button variant="glass" className="w-full text-xs" onClick={() => setAddingCourseSemIndex(semIndex)}>+ Add Course</Button>
                             </div>
                         </div>
                     ))}
