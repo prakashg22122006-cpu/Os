@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Task, Subtask, TaskPriority, TaskStatus } from '../../types';
@@ -17,7 +18,12 @@ const TaskViewerModal: React.FC = () => {
 
     useEffect(() => {
         if (viewingTask) {
-            setTaskData({ ...viewingTask });
+            setTaskData({ 
+                ...viewingTask,
+                subtasks: viewingTask.subtasks || [],
+                attachments: viewingTask.attachments || [],
+                dependencies: viewingTask.dependencies || []
+            });
         } else {
             setTaskData(null);
         }
@@ -32,6 +38,7 @@ const TaskViewerModal: React.FC = () => {
     const handleClose = () => setViewingTask(null);
 
     const handleSave = () => {
+        if (!taskData) return;
         setTasks(prev => prev.map(t => t.id === taskData.id ? { ...taskData, updatedAt: Date.now() } : t));
         handleClose();
     };
@@ -41,26 +48,28 @@ const TaskViewerModal: React.FC = () => {
     };
 
     const addSubtask = () => {
-        if (!subtaskInput.trim()) return;
+        if (!subtaskInput.trim() || !taskData) return;
         const newSubtask: Subtask = { id: Date.now(), title: subtaskInput, completed: false };
-        handleChange('subtasks', [...taskData.subtasks, newSubtask]);
+        handleChange('subtasks', [...(taskData.subtasks || []), newSubtask]);
         setSubtaskInput('');
     };
 
     const toggleSubtask = (id: number) => {
-        const updatedSubtasks = taskData.subtasks.map(st => st.id === id ? { ...st, completed: !st.completed } : st);
+        if (!taskData) return;
+        const updatedSubtasks = (taskData.subtasks || []).map(st => st.id === id ? { ...st, completed: !st.completed } : st);
         handleChange('subtasks', updatedSubtasks);
     };
     
     const removeSubtask = (id: number) => {
-        handleChange('subtasks', taskData.subtasks.filter(st => st.id !== id));
+        if (!taskData) return;
+        handleChange('subtasks', (taskData.subtasks || []).filter(st => st.id !== id));
     };
     
     const handleFileDrop = async (files: FileList) => {
-        if (!files || files.length === 0) return;
+        if (!files || files.length === 0 || !taskData) return;
         try {
             const newAttachmentIds = await Promise.all(Array.from(files).map(file => addFile(file)));
-            handleChange('attachments', [...taskData.attachments, ...newAttachmentIds]);
+            handleChange('attachments', [...(taskData.attachments || []), ...newAttachmentIds]);
             getFiles().then(dbFiles => setAllFiles(dbFiles.map(f => ({ id: f.id, name: f.name }))));
         } catch(error) {
             alert('Failed to attach files.');
@@ -68,10 +77,14 @@ const TaskViewerModal: React.FC = () => {
     };
 
     const removeAttachment = (id: number) => {
-        handleChange('attachments', taskData.attachments.filter(attId => attId !== id));
+        if (!taskData) return;
+        handleChange('attachments', (taskData.attachments || []).filter(attId => attId !== id));
     };
     
-    const attachedFiles = useMemo(() => allFiles.filter(f => taskData.attachments.includes(f.id)), [allFiles, taskData.attachments]);
+    const attachedFiles = useMemo(() => {
+        if (!taskData) return [];
+        return allFiles.filter(f => (taskData.attachments || []).includes(f.id));
+    }, [allFiles, taskData?.attachments]);
 
     return (
         <div className="modal-overlay" onClick={handleClose}>
@@ -89,7 +102,7 @@ const TaskViewerModal: React.FC = () => {
                              <div>
                                 <h4 className="text-sm font-semibold text-text-dim mb-2">Subtasks</h4>
                                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                                    {taskData.subtasks.map(st => (
+                                    {(taskData.subtasks || []).map(st => (
                                         <div key={st.id} className="flex items-center justify-between p-2 bg-black/30 rounded group">
                                             <label className="flex items-center gap-3 cursor-pointer">
                                                 <input type="checkbox" checked={st.completed} onChange={() => toggleSubtask(st.id)} className="w-4 h-4 rounded bg-transparent border-border-color text-[var(--grad-5)] focus:ring-0" />
@@ -109,10 +122,10 @@ const TaskViewerModal: React.FC = () => {
                              <div>
                                 <h4 className="text-sm font-semibold text-text-dim mb-2">Properties</h4>
                                 <div className="space-y-2">
-                                     <Input type="select" value={taskData.status} onChange={e => handleChange('status', e.target.value)}>
+                                     <Input type="select" value={taskData.status || 'Backlog'} onChange={e => handleChange('status', e.target.value)}>
                                         {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                     </Input>
-                                     <Input type="select" value={taskData.priority} onChange={e => handleChange('priority', e.target.value)}>
+                                     <Input type="select" value={taskData.priority || 'None'} onChange={e => handleChange('priority', e.target.value)}>
                                         {PRIORITY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                     </Input>
                                     <Input type="date" value={taskData.dueDate || ''} onChange={e => handleChange('dueDate', e.target.value)} />
@@ -123,7 +136,7 @@ const TaskViewerModal: React.FC = () => {
                                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                                     {attachedFiles.map(file => (
                                         <div key={file.id} className="flex items-center justify-between p-2 bg-black/30 rounded text-sm group">
-                                            <span className="truncate pr-2 cursor-pointer" onClick={async () => setViewingFile(await getFile(file.id))}>{file.name}</span>
+                                            <span className="truncate pr-2 cursor-pointer" onClick={async () => setViewingFile(await getFile(file.id))} title={file.name}>{file.name}</span>
                                             <button className="text-text-dim opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeAttachment(file.id)}>×</button>
                                         </div>
                                     ))}

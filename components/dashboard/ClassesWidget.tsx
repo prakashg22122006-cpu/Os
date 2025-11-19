@@ -8,8 +8,9 @@ import { addFile, getFile } from '../../utils/db';
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const timeToMinutes = (time: string): number => {
-    if(!time) return 0;
+    if(!time || typeof time !== 'string' || !time.includes(':')) return 0;
     const [hours, minutes] = time.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return 0;
     return hours * 60 + minutes;
 };
 
@@ -17,6 +18,7 @@ const formatTimeForDisplay = (time: string) => {
     if (!time) return '';
     const [h, m] = time.split(':');
     const hour = parseInt(h, 10);
+    if (isNaN(hour)) return time;
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 === 0 ? 12 : hour % 12;
     return `${displayHour}:${m} ${ampm}`;
@@ -81,10 +83,10 @@ const ClassesWidget: React.FC<ClassesWidgetProps> = ({ isMaximized = false }) =>
     }, [appSettings.timetableReferenceId]);
 
     const todaysClasses = useMemo(() => {
-        return classes.filter(c => {
+        return (classes || []).filter(c => {
             // Show if day matches OR if day is undefined (legacy/daily assumption)
             return c.day === currentDay || !c.day;
-        }).sort((a, b) => a.time.localeCompare(b.time));
+        }).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
     }, [classes, currentDay]);
 
     const handleEdit = (item: Class) => setViewingScheduleItem(item);
@@ -158,7 +160,7 @@ const ClassesWidget: React.FC<ClassesWidgetProps> = ({ isMaximized = false }) =>
                 ))}
             </div>
             {DAYS_OF_WEEK.map(day => {
-                const dayClasses = classes.filter(c => c.day === day);
+                const dayClasses = (classes || []).filter(c => c.day === day);
                 const isToday = day === currentDay;
                 return (
                     <div key={day} className={`flex-shrink-0 w-48 flex flex-col rounded-xl border ${isToday ? 'border-[var(--grad-1)] bg-[var(--grad-1)]/5' : 'border-white/5 bg-white/5'}`}>

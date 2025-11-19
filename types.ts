@@ -329,6 +329,7 @@ export interface Subtask {
   id: number;
   title: string;
   completed: boolean;
+  dueDate?: string; // YYYY-MM-DD
 }
 
 export type TaskStatus = 'Backlog' | 'In Progress' | 'Review' | 'Done';

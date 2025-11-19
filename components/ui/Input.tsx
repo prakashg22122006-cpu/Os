@@ -5,7 +5,9 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> | React.TextareaHT
 const Input = React.forwardRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, InputProps>(
   ({ className = '', ...props }, ref) => {
     
-    if (props.type === 'textarea') {
+    const type = (props as any).type;
+
+    if (type === 'textarea') {
       return (
         <textarea
           ref={ref as React.ForwardedRef<HTMLTextAreaElement>}
@@ -15,7 +17,7 @@ const Input = React.forwardRef<HTMLInputElement | HTMLTextAreaElement | HTMLSele
       );
     }
 
-    if (props.type === 'select') {
+    if (type === 'select') {
        return (
         <select
           ref={ref as React.ForwardedRef<HTMLSelectElement>}

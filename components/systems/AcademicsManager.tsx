@@ -112,7 +112,16 @@ const CourseDetailPanel: React.FC<{
     const syllabusInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        setLocalCourse(course);
+        // Use spread and defaults to safely handle potentially missing arrays in legacy data
+        setLocalCourse({
+            ...course,
+            assignments: course.assignments || [],
+            exams: course.exams || [],
+            resources: course.resources || [],
+            modules: course.modules || [],
+            quizzes: course.quizzes || [],
+            attendance: course.attendance || []
+        });
         if (course.syllabusFileId) {
             getFile(course.syllabusFileId).then(fileData => {
                 if (fileData) setSyllabusFileName(fileData.name);
@@ -143,7 +152,7 @@ const CourseDetailPanel: React.FC<{
     
     const handleAssignmentSubmit = (assignmentId: number) => {
         // Immediate local update
-        const updatedAssignments = localCourse.assignments.map(a => 
+        const updatedAssignments = (localCourse.assignments || []).map(a => 
             a.id === assignmentId ? { ...a, completed: true, grade: 'Pending' } : a
         );
         onUpdate({ ...localCourse, assignments: updatedAssignments });
@@ -166,7 +175,7 @@ const CourseDetailPanel: React.FC<{
                 dueDate: new Date().toISOString().split('T')[0],
                 completed: false
             };
-            onUpdate({ ...localCourse, assignments: [...localCourse.assignments, newAssignment] });
+            onUpdate({ ...localCourse, assignments: [...(localCourse.assignments || []), newAssignment] });
         }
     };
 
@@ -255,8 +264,8 @@ const CourseDetailPanel: React.FC<{
                             <h4 className="font-bold">Assignments</h4>
                             <Button onClick={addAssignment} className="text-xs">+ Add Assignment</Button>
                         </div>
-                        {localCourse.assignments.length === 0 ? <p className="text-gray-500 italic">No assignments yet.</p> : 
-                            localCourse.assignments.map(assign => (
+                        {(localCourse.assignments || []).length === 0 ? <p className="text-gray-500 italic">No assignments yet.</p> : 
+                            (localCourse.assignments || []).map(assign => (
                                 <div key={assign.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
                                     <div>
                                         <p className="font-semibold">{assign.title}</p>
@@ -319,7 +328,7 @@ const AcademicsManager: React.FC = () => {
     const handleUpdateCourse = (semIndex: number, courseIndex: number, updatedCourse: Course) => {
         setSemesters(prev => prev.map((s, si) =>
             si === semIndex
-                ? { ...s, courses: s.courses.map((c, ci) => ci === courseIndex ? updatedCourse : c) }
+                ? { ...s, courses: (s.courses || []).map((c, ci) => ci === courseIndex ? updatedCourse : c) }
                 : s
         ));
     };
@@ -344,7 +353,8 @@ const AcademicsManager: React.FC = () => {
         if (!selectedCourseKey) return { selectedCourse: null, selectedSemIndex: -1, selectedCourseIndex: -1 };
         const [semIndex, courseIndex] = selectedCourseKey.split('-').map(Number);
         const semester = semesters[semIndex];
-        const course = semester?.courses[courseIndex];
+        // Safe check for course existence in case of data corruption
+        const course = semester?.courses?.[courseIndex];
         return { selectedCourse: course, selectedSemIndex: semIndex, selectedCourseIndex: courseIndex };
     }, [selectedCourseKey, semesters]);
 
@@ -357,7 +367,7 @@ const AcademicsManager: React.FC = () => {
 
     const handleSaveNewCourse = (course: Course) => {
         if (addingCourseSemIndex !== null) {
-            setSemesters(prev => prev.map((s, si) => si === addingCourseSemIndex ? { ...s, courses: [...s.courses, course] } : s));
+            setSemesters(prev => prev.map((s, si) => si === addingCourseSemIndex ? { ...s, courses: [...(s.courses || []), course] } : s));
             setAddingCourseSemIndex(null);
         }
     };
@@ -399,7 +409,7 @@ const AcademicsManager: React.FC = () => {
                                 <Button variant="glass" className="text-xs !p-1" onClick={() => setEditingSemester(semester)}>Edit</Button>
                             </div>
                             <div className="space-y-1 mt-1">
-                                {semester.courses.map((course, courseIndex) => (
+                                {(semester.courses || []).map((course, courseIndex) => (
                                     <button 
                                         key={`${course.name}-${courseIndex}`} 
                                         onClick={() => handleSelectCourse(semIndex, courseIndex)}

@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Task, TaskPriority, TaskStatus } from '../../types';
 
-const PRIORITY_STYLES: Record<TaskPriority, string> = {
+const PRIORITY_STYLES: Record<TaskPriority | 'None', string> = {
     'Urgent': 'bg-red-500',
     'High': 'bg-blue-500',
     'Medium': 'bg-yellow-500',
@@ -19,8 +19,10 @@ const PRIORITY_ORDER: Record<Task['priority'], number> = {
 };
 
 const TaskItem: React.FC<{ task: Task; isSelected: boolean; onSelect: (id: number) => void; onEdit: (task: Task) => void; }> = ({ task, isSelected, onSelect, onEdit }) => {
-    const completedSubtasks = task.subtasks.filter(st => st.completed).length;
-    const totalSubtasks = task.subtasks.length;
+    const subtasks = task.subtasks || [];
+    const completedSubtasks = subtasks.filter(st => st.completed).length;
+    const totalSubtasks = subtasks.length;
+    const priorityColor = PRIORITY_STYLES[task.priority || 'None'] || PRIORITY_STYLES['None'];
 
     return (
         <div 
@@ -47,7 +49,7 @@ const TaskItem: React.FC<{ task: Task; isSelected: boolean; onSelect: (id: numbe
                     </div>
                 )}
             </div>
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${PRIORITY_STYLES[task.priority]}`} title={`Priority: ${task.priority}`}></div>
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${priorityColor}`} title={`Priority: ${task.priority}`}></div>
         </div>
     );
 };
@@ -75,9 +77,9 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
             return b.updatedAt - a.updatedAt;
         });
         sortedTasks.forEach(task => {
-            if (grouped[task.status]) {
-                grouped[task.status].push(task);
-            }
+            // Safety: Check if task status is valid, else default to Backlog
+            const status = (task.status && grouped[task.status]) ? task.status : 'Backlog';
+            grouped[status].push(task);
         });
         return grouped;
     }, [tasks]);
@@ -165,8 +167,9 @@ const FullscreenKanban: React.FC<{ onClose: () => void; }> = ({ onClose }) => {
                         <h3 className="font-semibold p-2">{status} <span className="text-gray-400">({tasksByStatus[status].length})</span></h3>
                         <div className="space-y-2 overflow-y-auto flex-grow">
                             {tasksByStatus[status].map((task) => {
-                                const completed = task.subtasks.filter(s => s.completed).length;
-                                const total = task.subtasks.length;
+                                const subtasks = task.subtasks || [];
+                                const completed = subtasks.filter(s => s.completed).length;
+                                const total = subtasks.length;
                                 return (
                                     <div 
                                         key={task.id}
@@ -213,7 +216,8 @@ const TasksWidget: React.FC = () => {
     const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
     const todaysTasks = useMemo(() => {
-        return tasks.filter(t => t.dueDate === todayStr);
+        // Defensive check: tasks might be undefined initially if storage is slow
+        return (tasks || []).filter(t => t.dueDate === todayStr);
     }, [tasks, todayStr]);
 
     const addTask = () => {

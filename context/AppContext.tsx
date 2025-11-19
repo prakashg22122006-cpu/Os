@@ -43,6 +43,8 @@ interface ActivePomodoroState {
   isPaused: boolean;
 }
 
+export type AppSpace = 'dashboard' | 'workspace';
+
 interface AppContextType {
   classes: Class[];
   setClasses: React.Dispatch<React.SetStateAction<Class[]>>;
@@ -125,6 +127,9 @@ interface AppContextType {
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   codeSnippets: CodeSnippet[];
   setCodeSnippets: React.Dispatch<React.SetStateAction<CodeSnippet[]>>;
+  
+  activeSpace: AppSpace;
+  setActiveSpace: React.Dispatch<React.SetStateAction<AppSpace>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -249,6 +254,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   
   const [tasks, setTasks] = useLocalStorage<Task[]>('tasks_v2', []);
+  const [activeSpace, setActiveSpace] = useLocalStorage<AppSpace>('activeSpace', 'dashboard');
 
   // KANBAN MIGRATION
   useEffect(() => {
@@ -314,6 +320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifications, setNotifications,
     chatMessages: Array.isArray(chatMessages) ? chatMessages : [], setChatMessages,
     codeSnippets: Array.isArray(codeSnippets) ? codeSnippets : [], setCodeSnippets,
+    activeSpace, setActiveSpace
   };
 
   return (

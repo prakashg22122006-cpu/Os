@@ -249,7 +249,7 @@ const LinkEditorModal: React.FC<{
                     <Input value={formData.title} onChange={e => setFormData(f => ({...f, title: e.target.value}))} placeholder="Title" />
                     <Input value={formData.url} onChange={e => setFormData(f => ({...f, url: e.target.value}))} placeholder="URL" />
                     <textarea value={formData.description} onChange={e => setFormData(f => ({...f, description: e.target.value}))} placeholder="Description (optional)..." rows={3} className="glass-textarea w-full text-sm" />
-                    <select value={formData.type} onChange={e => setFormData(f => ({...f, type: e.target.value}))} className="glass-select w-full">
+                    <select value={formData.type} onChange={e => setFormData(f => ({...f, type: e.target.value as 'link' | 'tool'}))} className="glass-select w-full">
                         <option value="link">Study Material / Link</option>
                         <option value="tool">Tool</option>
                     </select>

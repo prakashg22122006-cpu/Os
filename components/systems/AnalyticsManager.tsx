@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Semester, Course, EngagementLog } from '../../types';
@@ -30,7 +31,7 @@ const getGradeValue = (grade: string): number => {
 const OverviewTab: React.FC = () => {
     const { semesters } = useAppContext();
     const stats = useMemo(() => {
-        const allCourses = semesters.flatMap(s => s.courses);
+        const allCourses = semesters.flatMap(s => s.courses || []);
         let totalCredits = 0;
         let weightedGradePoints = 0;
         let totalAttendance = 0;
@@ -50,7 +51,7 @@ const OverviewTab: React.FC = () => {
                     totalCredits += credits;
                 }
             }
-            c.attendance.forEach(a => {
+            (c.attendance || []).forEach(a => {
                 totalAttendance++;
                 if (a.status === 'present') presentAttendance++;
             });
@@ -87,14 +88,14 @@ const AttendanceTab: React.FC = () => {
     
     const attendanceData = useMemo(() => {
         const courses = selectedSemester === 'all'
-            ? semesters.flatMap(s => s.courses)
+            ? semesters.flatMap(s => s.courses || [])
             : semesters.find(s => s.name === selectedSemester)?.courses || [];
 
         const daily: { [date: string]: { present: number, total: number } } = {};
         let totalPresent = 0, totalAbsent = 0;
 
         courses.forEach(c => {
-            c.attendance.forEach(a => {
+            (c.attendance || []).forEach(a => {
                 if (!daily[a.date]) daily[a.date] = { present: 0, total: 0 };
                 daily[a.date].total++;
                 if (a.status === 'present') {
