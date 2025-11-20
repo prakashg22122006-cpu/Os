@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Header from './components/Header';
@@ -29,12 +30,15 @@ const AppContent: React.FC<{
         <LiveWallpaperControls />
         <Header />
         <main className={`transition-all duration-500 ease-in-out ${isFocusMode ? 'scale-95 blur-sm brightness-50 pointer-events-none' : 'scale-100 blur-0 brightness-100'}`}>
-            <div className="view-container space-y-6 pb-20 px-1 md:px-8 lg:px-12 pt-2 md:pt-4 h-[calc(100vh-60px)] md:h-[calc(100vh-80px)] overflow-hidden">
+            {/* Optimized container: Less padding on mobile for more space, responsive height */}
+            <div className="view-container space-y-4 md:space-y-6 pb-24 md:pb-20 px-3 md:px-8 lg:px-12 pt-16 md:pt-20 h-screen overflow-hidden flex flex-col box-border">
+                <div className="flex-grow min-h-0">
                 {activeSpace === 'dashboard' ? (
                     <DashboardView setIsFocusMode={setIsFocusMode} />
                 ) : (
                     <CSWorkspace />
                 )}
+                </div>
             </div>
         </main>
         {viewingFile && <FileViewerModal />}

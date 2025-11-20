@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { DesignDiagram, DesignNode, DesignEdge, AlgoVisual, AlgoVisualStep } from '../../types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { useMobile } from '../../hooks/useMobile';
 
 // --- SHARED TYPES & HELPERS ---
 const NODE_TYPES = [
@@ -22,6 +23,8 @@ const DiagramEditor: React.FC<{ diagram: DesignDiagram; onSave: (d: DesignDiagra
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [mode, setMode] = useState<'select' | 'link'>('select');
     const svgRef = useRef<SVGSVGElement>(null);
+    const isMobile = useMobile();
+    const [showTools, setShowTools] = useState(!isMobile);
 
     const handleAddNode = (type: any) => {
         const newNode: DesignNode = {
@@ -34,9 +37,10 @@ const DiagramEditor: React.FC<{ diagram: DesignDiagram; onSave: (d: DesignDiagra
             h: 60
         };
         setNodes([...nodes, newNode]);
+        if(isMobile) setShowTools(false);
     };
 
-    const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent, nodeId: string) => {
         if (mode === 'link') {
             if (selectedNodeId && selectedNodeId !== nodeId) {
                 // Create link
@@ -48,28 +52,38 @@ const DiagramEditor: React.FC<{ diagram: DesignDiagram; onSave: (d: DesignDiagra
             }
         } else {
             setSelectedNodeId(nodeId);
-            // Drag logic start
+            // Drag logic
             const node = nodes.find(n => n.id === nodeId);
             if (!node) return;
             
-            const startX = e.clientX;
-            const startY = e.clientY;
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+            const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+            
+            const startX = clientX;
+            const startY = clientY;
             const origX = node.x;
             const origY = node.y;
 
-            const handleMouseMove = (moveEvent: MouseEvent) => {
-                const dx = moveEvent.clientX - startX;
-                const dy = moveEvent.clientY - startY;
+            const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+                const moveClientX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : (moveEvent as MouseEvent).clientX;
+                const moveClientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : (moveEvent as MouseEvent).clientY;
+
+                const dx = moveClientX - startX;
+                const dy = moveClientY - startY;
                 setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, x: origX + dx, y: origY + dy } : n));
             };
 
-            const handleMouseUp = () => {
-                window.removeEventListener('mousemove', handleMouseMove);
-                window.removeEventListener('mouseup', handleMouseUp);
+            const handleEnd = () => {
+                window.removeEventListener('mousemove', handleMove);
+                window.removeEventListener('mouseup', handleEnd);
+                window.removeEventListener('touchmove', handleMove);
+                window.removeEventListener('touchend', handleEnd);
             };
 
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleEnd);
+            window.addEventListener('touchmove', handleMove);
+            window.addEventListener('touchend', handleEnd);
         }
     };
 
@@ -109,22 +123,26 @@ const DiagramEditor: React.FC<{ diagram: DesignDiagram; onSave: (d: DesignDiagra
 
     return (
         <div className="fixed inset-0 bg-black/90 z-[60] flex flex-col">
-            <header className="p-2 border-b border-white/10 flex justify-between items-center bg-[#111]">
-                <div className="flex items-center gap-4">
-                    <Input value={title} onChange={e => setTitle(e.target.value)} className="font-bold bg-transparent border-none !text-lg" />
-                    <div className="flex bg-white/5 rounded p-1 gap-1">
-                        <button onClick={() => setMode('select')} className={`px-3 py-1 rounded text-sm ${mode === 'select' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>Select / Drag</button>
-                        <button onClick={() => setMode('link')} className={`px-3 py-1 rounded text-sm ${mode === 'link' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>Link Tool</button>
+            <header className="p-2 border-b border-white/10 flex justify-between items-center bg-[#111] flex-wrap gap-2">
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <Input value={title} onChange={e => setTitle(e.target.value)} className="font-bold bg-transparent border-none !text-lg flex-grow" />
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                     <div className="flex bg-white/5 rounded p-1 gap-1">
+                        <button onClick={() => setMode('select')} className={`px-3 py-1 rounded text-xs ${mode === 'select' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>Select</button>
+                        <button onClick={() => setMode('link')} className={`px-3 py-1 rounded text-xs ${mode === 'link' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>Link</button>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={onClose} className="text-xs">Close</Button>
+                        <Button onClick={() => onSave({ ...diagram, title, nodes, edges, updatedAt: Date.now() })} className="text-xs">Save</Button>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={onClose}>Close</Button>
-                    <Button onClick={() => onSave({ ...diagram, title, nodes, edges, updatedAt: Date.now() })}>Save Diagram</Button>
-                </div>
             </header>
-            <div className="flex-grow flex overflow-hidden">
-                <div className="w-48 bg-[#111] border-r border-white/10 p-4 flex flex-col gap-2">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Components</h4>
+            <div className="flex-grow flex overflow-hidden relative">
+                <Button variant="glass" className="absolute top-2 left-2 z-20 text-xs md:hidden" onClick={() => setShowTools(!showTools)}>{showTools ? 'Hide Tools' : 'Tools'}</Button>
+
+                <div className={`${showTools ? 'flex' : 'hidden'} absolute md:relative z-10 bg-[#111] h-full md:w-48 w-40 border-r border-white/10 p-4 flex-col gap-2 shadow-xl md:shadow-none`}>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 mt-8 md:mt-0">Components</h4>
                     {NODE_TYPES.map(t => (
                         <button key={t.type} onClick={() => handleAddNode(t)} className="p-3 bg-white/5 hover:bg-white/10 rounded text-sm text-left border border-white/5">
                             + {t.label}
@@ -140,7 +158,7 @@ const DiagramEditor: React.FC<{ diagram: DesignDiagram; onSave: (d: DesignDiagra
                         )}
                     </div>
                 </div>
-                <div className="flex-grow relative bg-[#080808] overflow-hidden cursor-crosshair">
+                <div className="flex-grow relative bg-[#080808] overflow-hidden cursor-crosshair touch-none">
                     <svg ref={svgRef} width="100%" height="100%" className="w-full h-full">
                         <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -165,6 +183,7 @@ const DiagramEditor: React.FC<{ diagram: DesignDiagram; onSave: (d: DesignDiagra
                                 key={node.id} 
                                 transform={`translate(${node.x}, ${node.y})`} 
                                 onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, node.id); }}
+                                onTouchStart={(e) => { e.stopPropagation(); handleMouseDown(e, node.id); }}
                                 className="cursor-move"
                             >
                                 {renderShape(node)}
@@ -244,8 +263,8 @@ const AlgoVisualEditor: React.FC<{ algo: AlgoVisual; onSave: (a: AlgoVisual) => 
                     ) : (
                          steps.length > 0 && steps[currentStep] ? (
                              <div className="flex-grow flex flex-col items-center justify-center text-center">
-                                 <pre className="text-2xl md:text-4xl font-mono text-green-400 mb-8 whitespace-pre-wrap">{steps[currentStep].visualData}</pre>
-                                 <p className="text-xl text-gray-300">{steps[currentStep].description}</p>
+                                 <pre className="text-xl md:text-4xl font-mono text-green-400 mb-8 whitespace-pre-wrap">{steps[currentStep].visualData}</pre>
+                                 <p className="text-lg md:text-xl text-gray-300">{steps[currentStep].description}</p>
                              </div>
                          ) : (
                              <div className="flex-grow flex items-center justify-center text-gray-500">No steps defined. Add one.</div>
@@ -253,14 +272,16 @@ const AlgoVisualEditor: React.FC<{ algo: AlgoVisual; onSave: (a: AlgoVisual) => 
                     )}
                 </div>
                 
-                <div className="mt-6 flex gap-4 items-center w-full max-w-3xl justify-between">
-                    <Button disabled={currentStep === 0} onClick={() => setCurrentStep(c => c - 1)} variant="glass">Previous</Button>
-                    <div className="text-gray-400">Step {steps.length > 0 ? currentStep + 1 : 0} / {steps.length}</div>
-                    <div className="flex gap-2">
-                         {!isEditingStep && steps[currentStep] && <Button variant="outline" onClick={() => { setEditingStepData(steps[currentStep]); setIsEditingStep(true); }}>Edit Current</Button>}
-                         {!isEditingStep && steps[currentStep] && <Button variant="outline" className="text-red-400" onClick={handleDeleteStep}>Delete</Button>}
-                         <Button onClick={handleAddStep}>+ Add Step</Button>
-                         <Button disabled={currentStep >= steps.length - 1} onClick={() => setCurrentStep(c => c + 1)} variant="glass">Next</Button>
+                <div className="mt-6 flex gap-4 items-center w-full max-w-3xl justify-between flex-wrap">
+                    <div className="flex gap-2 w-full justify-center md:w-auto md:justify-start">
+                        <Button disabled={currentStep === 0} onClick={() => setCurrentStep(c => c - 1)} variant="glass">Prev</Button>
+                        <div className="text-gray-400 my-auto">Step {steps.length > 0 ? currentStep + 1 : 0} / {steps.length}</div>
+                        <Button disabled={currentStep >= steps.length - 1} onClick={() => setCurrentStep(c => c + 1)} variant="glass">Next</Button>
+                    </div>
+                    <div className="flex gap-2 w-full justify-center md:w-auto md:justify-end">
+                         {!isEditingStep && steps[currentStep] && <Button variant="outline" onClick={() => { setEditingStepData(steps[currentStep]); setIsEditingStep(true); }}>Edit</Button>}
+                         {!isEditingStep && steps[currentStep] && <Button variant="outline" className="text-red-400" onClick={handleDeleteStep}>Del</Button>}
+                         <Button onClick={handleAddStep}>+ Step</Button>
                     </div>
                 </div>
             </div>

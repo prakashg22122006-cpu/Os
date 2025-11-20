@@ -70,8 +70,8 @@ const KnowledgeMapEditor: React.FC = () => {
             const newNode: KnowledgeNode = {
                 id: `kn_${Date.now()}`,
                 label,
-                x: Math.random() * 600,
-                y: Math.random() * 400
+                x: Math.random() * 300,
+                y: Math.random() * 300
             };
             setKnowledgeMap(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
         }
@@ -101,12 +101,12 @@ const KnowledgeMapEditor: React.FC = () => {
     return (
         <div className="h-full flex flex-col relative bg-[#050505] rounded-xl border border-white/5 overflow-hidden">
             <div className="absolute top-4 left-4 z-10 flex gap-2">
-                <Button onClick={addNode}>+ Add Concept</Button>
-                <div className="bg-black/50 px-3 py-1.5 rounded text-xs text-gray-400 pointer-events-none">
+                <Button onClick={addNode}>+ Add</Button>
+                <div className="bg-black/50 px-3 py-1.5 rounded text-xs text-gray-400 pointer-events-none hidden md:block">
                     Click to select. Click another to link. Double-click to delete.
                 </div>
             </div>
-            <svg ref={svgRef} className="w-full h-full cursor-crosshair">
+            <svg ref={svgRef} className="w-full h-full cursor-crosshair touch-none">
                 {knowledgeMap.edges.map(edge => {
                     const s = knowledgeMap.nodes.find(n => n.id === edge.source);
                     const t = knowledgeMap.nodes.find(n => n.id === edge.target);
@@ -144,7 +144,7 @@ const ReferenceEditor: React.FC<{ item: ReferenceItem; onSave: (i: ReferenceItem
                     <Button onClick={() => { onSave({...data, updatedAt: Date.now()}); onClose(); }}>Save</Button>
                 </header>
                 <div className="p-4 flex-grow flex flex-col">
-                    <div className="flex gap-2 mb-2">
+                    <div className="flex flex-col md:flex-row gap-2 mb-2">
                         <Input value={data.category} onChange={e => setData({...data, category: e.target.value})} placeholder="Category" className="flex-1" />
                         <Input value={data.tags.join(', ')} onChange={e => setData({...data, tags: e.target.value.split(',').map(t=>t.trim())})} placeholder="Tags" className="flex-1" />
                     </div>
@@ -190,14 +190,14 @@ const ReferenceLibrary: React.FC = () => {
         <div className="h-full flex flex-col">
              <div className="flex gap-2 mb-4">
                  <Input placeholder="Search library..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="flex-grow" />
-                 <Button onClick={() => setEditingItem({ id: Date.now(), title: '', content: '', category: '', tags: [], updatedAt: Date.now() })}>+ New Ref</Button>
+                 <Button onClick={() => setEditingItem({ id: Date.now(), title: '', content: '', category: '', tags: [], updatedAt: Date.now() })}>+ New</Button>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pr-2 pb-4">
                  {filtered.map(item => (
                      <div key={item.id} className="bg-white/5 border border-white/5 p-4 rounded-xl hover:bg-white/10 transition-all group relative">
                          <div className="text-xs uppercase text-gray-500 font-bold mb-1">{item.category || 'General'}</div>
                          <h4 className="font-bold text-white text-lg mb-2">{item.title || 'Untitled'}</h4>
-                         <div className="flex gap-1 mb-3">
+                         <div className="flex gap-1 mb-3 flex-wrap">
                              {item.tags.map(t => <span key={t} className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded text-gray-400">{t}</span>)}
                          </div>
                          <div className="flex gap-2 mt-auto">
@@ -235,10 +235,10 @@ const DeepWorkManager: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-             <div className="flex border-b border-white/10 mb-4">
-                <button onClick={() => setActiveTab('feynman')} className={`px-4 py-2 text-sm font-bold transition-colors ${activeTab === 'feynman' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Feynman Space</button>
-                <button onClick={() => setActiveTab('map')} className={`px-4 py-2 text-sm font-bold transition-colors ${activeTab === 'map' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Knowledge Map</button>
-                <button onClick={() => setActiveTab('reference')} className={`px-4 py-2 text-sm font-bold transition-colors ${activeTab === 'reference' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Ref Library</button>
+             <div className="flex border-b border-white/10 mb-4 overflow-x-auto">
+                <button onClick={() => setActiveTab('feynman')} className={`px-4 py-2 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'feynman' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Feynman Space</button>
+                <button onClick={() => setActiveTab('map')} className={`px-4 py-2 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'map' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Knowledge Map</button>
+                <button onClick={() => setActiveTab('reference')} className={`px-4 py-2 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'reference' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Ref Library</button>
             </div>
             
             <div className="flex-grow overflow-hidden">

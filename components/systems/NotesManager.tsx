@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
@@ -6,6 +7,7 @@ import { Note, StoredFile, LinkResource } from '../../types';
 import { addFile, getFiles, getFile, updateFileMetadata, deleteFile } from '../../utils/db';
 import RichTextEditor from '../ui/RichTextEditor';
 import DropZone from '../ui/DropZone';
+import { useMobile } from '../../hooks/useMobile';
 
 // --- ICONS ---
 const NoteIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>;
@@ -54,6 +56,7 @@ const EmptyState: React.FC<{ onAction: () => void }> = ({ onAction }) => (
 const NotesManager: React.FC = () => {
     const { notes, setNotes, linkResources, setLinkResources, setViewingFile } = useAppContext();
     const [dbFiles, setDbFiles] = useState<StoredFile[]>([]);
+    const isMobile = useMobile();
     
     type FilterType = 'all' | 'notes' | 'files' | 'links';
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -62,6 +65,9 @@ const NotesManager: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedResourceId, setSelectedResourceId] = useState<{ id: number, type: UnifiedResource['type'] } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // Mobile view state management: 0=Sidebar, 1=List, 2=Editor
+    const [mobileViewStage, setMobileViewStage] = useState(0); 
 
     const loadFiles = useCallback(async () => { setDbFiles(await getFiles()); }, []);
     useEffect(() => { loadFiles(); }, [loadFiles]);
@@ -105,12 +111,17 @@ const NotesManager: React.FC = () => {
         return unifiedResources.find(r => r.id === selectedResourceId.id && r.type === selectedResourceId.type);
     }, [selectedResourceId, unifiedResources]);
     
+    const handleSelectResource = (id: number, type: UnifiedResource['type']) => {
+        setSelectedResourceId({ id, type });
+        if (isMobile) setMobileViewStage(2); // Go to editor
+    };
+
     const createNote = () => {
         const newNote: Note = {
             id: Date.now(), title: 'New Note', content: '', attachments: [], ts: Date.now(), updatedAt: Date.now(),
         };
         setNotes(prev => [newNote, ...prev]);
-        setSelectedResourceId({ id: newNote.id, type: 'note' });
+        handleSelectResource(newNote.id, 'note');
     };
 
     const addLink = () => {
@@ -118,7 +129,7 @@ const NotesManager: React.FC = () => {
         if (url) {
             const newLink: LinkResource = { id: Date.now(), ts: Date.now(), title: url, url, type: 'link' };
             setLinkResources(prev => [newLink, ...prev]);
-            setSelectedResourceId({ id: newLink.id, type: 'link' });
+            handleSelectResource(newLink.id, 'link');
         }
     };
     
@@ -131,7 +142,7 @@ const NotesManager: React.FC = () => {
             }
             await loadFiles();
             if (lastNewId) {
-                setSelectedResourceId({ id: lastNewId, type: 'file' });
+                handleSelectResource(lastNewId, 'file');
             }
         } catch (error) {
             console.error('File upload failed', error);
@@ -155,110 +166,127 @@ const NotesManager: React.FC = () => {
         if (type === 'file') deleteFile(id).then(loadFiles);
         if (type === 'link' || type === 'tool') setLinkResources(prev => prev.filter(l => l.id !== id));
         setSelectedResourceId(null);
+        if(isMobile) setMobileViewStage(1);
     }
     
     if (unifiedResources.length === 0) {
         return <EmptyState onAction={createNote} />;
     }
 
-    return (
-        <div className="flex h-[80vh]">
-            {/* Sidebar */}
-            <div className="w-64 flex-shrink-0 border-r border-[var(--border-color)] p-2 flex flex-col">
-                <div className="flex gap-2 mb-2">
-                    <Button onClick={createNote} className="flex-1">New Note</Button>
-                    <Button onClick={addLink} className="flex-1">Add Link</Button>
-                </div>
-                 <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="w-full mb-4">Upload File</Button>
-                 <input type="file" ref={fileInputRef} onChange={(e) => handleFilesUpload(e.target.files)} className="hidden" multiple />
+    const SidebarContent = () => (
+        <>
+            <div className="flex gap-2 mb-2">
+                <Button onClick={createNote} className="flex-1 text-xs md:text-sm">New Note</Button>
+                <Button onClick={addLink} className="flex-1 text-xs md:text-sm">Add Link</Button>
+            </div>
+             <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="w-full mb-4 text-xs md:text-sm">Upload File</Button>
+             <input type="file" ref={fileInputRef} onChange={(e) => handleFilesUpload(e.target.files)} className="hidden" multiple />
 
-                <nav className="space-y-1 text-sm">
-                    {(['all', 'notes', 'files', 'links'] as FilterType[]).map(f => (
-                        <button key={f} onClick={() => { setActiveFilter(f); setSelectedFolder(null); setSelectedTag(null); }} className={`w-full text-left p-2 rounded flex items-center gap-2 ${activeFilter === f && !selectedFolder && !selectedTag ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
-                           {f === 'all' ? '🗂️' : f === 'notes' ? <NoteIcon/> : f === 'files' ? <FileIcon/> : <LinkIcon/>} <span className="capitalize">{f}</span>
-                        </button>
-                    ))}
-                </nav>
-                 <div className="mt-4 pt-4 border-t border-[var(--border-color)] overflow-y-auto">
-                    <h4 className="px-2 mb-1 text-xs font-semibold uppercase text-gray-500 flex items-center gap-2"><FolderIcon /> Folders</h4>
-                     {folders.map(f => (
-                        <button key={f} onClick={() => { setSelectedFolder(f); setSelectedTag(null); }} className={`w-full text-left p-2 rounded text-sm flex items-center gap-2 truncate ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
-                            {f}
-                        </button>
-                     ))}
-                     <h4 className="px-2 mt-4 mb-1 text-xs font-semibold uppercase text-gray-500 flex items-center gap-2"><TagIcon /> Tags</h4>
-                      {tags.map(t => (
-                        <button key={t} onClick={() => { setSelectedTag(t); setSelectedFolder(null); }} className={`w-full text-left p-2 rounded text-sm flex items-center gap-2 truncate ${selectedTag === t ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
-                           #{t}
-                        </button>
-                     ))}
-                 </div>
+            <nav className="space-y-1 text-sm">
+                {(['all', 'notes', 'files', 'links'] as FilterType[]).map(f => (
+                    <button key={f} onClick={() => { setActiveFilter(f); setSelectedFolder(null); setSelectedTag(null); if(isMobile) setMobileViewStage(1); }} className={`w-full text-left p-2 rounded flex items-center gap-2 ${activeFilter === f && !selectedFolder && !selectedTag ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
+                       {f === 'all' ? '🗂️' : f === 'notes' ? <NoteIcon/> : f === 'files' ? <FileIcon/> : <LinkIcon/>} <span className="capitalize">{f}</span>
+                    </button>
+                ))}
+            </nav>
+             <div className="mt-4 pt-4 border-t border-[var(--border-color)] overflow-y-auto flex-grow">
+                <h4 className="px-2 mb-1 text-xs font-semibold uppercase text-gray-500 flex items-center gap-2"><FolderIcon /> Folders</h4>
+                 {folders.map(f => (
+                    <button key={f} onClick={() => { setSelectedFolder(f); setSelectedTag(null); if(isMobile) setMobileViewStage(1); }} className={`w-full text-left p-2 rounded text-sm flex items-center gap-2 truncate ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
+                        {f}
+                    </button>
+                 ))}
+                 <h4 className="px-2 mt-4 mb-1 text-xs font-semibold uppercase text-gray-500 flex items-center gap-2"><TagIcon /> Tags</h4>
+                  {tags.map(t => (
+                    <button key={t} onClick={() => { setSelectedTag(t); setSelectedFolder(null); if(isMobile) setMobileViewStage(1); }} className={`w-full text-left p-2 rounded text-sm flex items-center gap-2 truncate ${selectedTag === t ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5'}`}>
+                       #{t}
+                    </button>
+                 ))}
+             </div>
+        </>
+    );
+
+    return (
+        <div className="flex h-[70vh] md:h-[80vh] overflow-hidden relative">
+            {/* Sidebar (Folders) */}
+            <div className={`${isMobile ? (mobileViewStage === 0 ? 'w-full flex' : 'hidden') : 'w-56 md:w-64 flex'} flex-col flex-shrink-0 md:border-r border-[var(--border-color)] p-2 h-full`}>
+                <SidebarContent />
             </div>
             
-            <DropZone onDrop={handleFilesUpload} className="flex-grow flex min-w-0">
+            <DropZone onDrop={handleFilesUpload} className={`${isMobile && mobileViewStage !== 1 && mobileViewStage !== 2 ? 'hidden' : 'flex'} flex-grow min-w-0`}>
                 {/* Item List */}
-                <div className="w-80 flex-shrink-0 border-r border-[var(--border-color)] p-2 flex flex-col">
-                    <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="mb-2"/>
-                    <div className="overflow-y-auto space-y-1">
-                        {filteredResources.map(res => (
-                            <div key={`${res.type}-${res.id}`} onClick={() => setSelectedResourceId({id: res.id, type: res.type})} className={`p-2 rounded-lg cursor-pointer ${selectedResourceId?.id === res.id && selectedResourceId?.type === res.type ? 'bg-[var(--grad-1)]/20' : 'hover:bg-white/5'}`}>
-                                <div className="flex items-start gap-2">
-                                    <span className="mt-1 text-gray-500">{getResourceIcon(res.type, res.mimeType)}</span>
-                                    <div className="flex-grow min-w-0">
-                                        <p className="font-semibold truncate">{res.title}</p>
-                                        <p className="text-xs text-gray-400">
-                                            {new Date(res.ts).toLocaleDateString()}
-                                            {res.folder && ` • ${res.folder}`}
-                                        </p>
+                <div className={`${isMobile ? (mobileViewStage === 1 ? 'w-full flex' : 'hidden') : 'w-72 md:w-80 flex'} flex-col flex-shrink-0 md:border-r border-[var(--border-color)] p-2 h-full`}>
+                    <div className="flex gap-2 mb-2">
+                        {isMobile && <Button variant="glass" className="text-xs" onClick={() => setMobileViewStage(0)}>← Folders</Button>}
+                        <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="flex-grow text-sm"/>
+                    </div>
+                    <div className="overflow-y-auto space-y-1 flex-grow">
+                        {filteredResources.length === 0 ? (
+                            <p className="text-gray-500 text-xs text-center py-4">No items found.</p>
+                        ) : (
+                            filteredResources.map(res => (
+                                <div key={`${res.type}-${res.id}`} onClick={() => handleSelectResource(res.id, res.type)} className={`p-2 rounded-lg cursor-pointer ${selectedResourceId?.id === res.id && selectedResourceId?.type === res.type ? 'bg-[var(--grad-1)]/20' : 'hover:bg-white/5'}`}>
+                                    <div className="flex items-start gap-2">
+                                        <span className="mt-1 text-gray-500">{getResourceIcon(res.type, res.mimeType)}</span>
+                                        <div className="flex-grow min-w-0">
+                                            <p className="font-semibold truncate text-sm">{res.title}</p>
+                                            <p className="text-[10px] text-gray-400">
+                                                {new Date(res.ts).toLocaleDateString()}
+                                                {res.folder && ` • ${res.folder}`}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
 
                 {/* Editor/Viewer */}
-                <div className="flex-grow p-4 flex flex-col">
+                <div className={`${isMobile ? (mobileViewStage === 2 ? 'flex' : 'hidden') : 'flex'} flex-col flex-grow p-2 md:p-4 h-full`}>
                     {activeResource ? (
                         <>
-                            <div className="flex justify-between items-start mb-2">
-                                <Input value={activeResource.title} onChange={e => updateResource(activeResource.id, activeResource.type, { title: e.target.value })} className="text-xl font-bold !p-1 !border-0"/>
-                                <Button variant="glass" className="text-red-400 border-red-500/50 hover:bg-red-500/10 text-xs" onClick={() => deleteResource(activeResource.id, activeResource.type)}>Delete</Button>
+                            <div className="flex justify-between items-start mb-2 gap-2">
+                                {isMobile && <Button variant="glass" className="text-xs shrink-0" onClick={() => setMobileViewStage(1)}>← List</Button>}
+                                <Input value={activeResource.title} onChange={e => updateResource(activeResource.id, activeResource.type, { title: e.target.value })} className="text-lg md:text-xl font-bold !p-1 !border-0 flex-grow min-w-0"/>
+                                <Button variant="glass" className="text-red-400 border-red-500/50 hover:bg-red-500/10 text-xs shrink-0" onClick={() => deleteResource(activeResource.id, activeResource.type)}>Del</Button>
                             </div>
-                            {activeResource.type === 'note' && (
-                                <div className="flex-grow min-h-0">
+                            <div className="flex-grow flex flex-col min-h-0 overflow-y-auto">
+                                {activeResource.type === 'note' && (
                                     <RichTextEditor value={activeResource.content || ''} onChange={content => updateResource(activeResource.id, 'note', { content })} />
-                                </div>
-                            )}
-                            {(activeResource.type === 'link' || activeResource.type === 'tool') && (
-                                <div className="space-y-2">
-                                    <Input value={activeResource.url || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { url: e.target.value })} />
-                                    <textarea value={activeResource.description || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { description: e.target.value })} placeholder="Description..." rows={4} className="glass-textarea w-full text-sm" />
-                                </div>
-                            )}
-                            {activeResource.type === 'file' && (
-                                 <div className="space-y-2 text-sm text-gray-300">
-                                    <p><strong>Type:</strong> {activeResource.mimeType}</p>
-                                    <p><strong>Size:</strong> {activeResource.size ? (activeResource.size / 1024).toFixed(2) : 0} KB</p>
-                                    <Button onClick={async () => setViewingFile(await getFile(activeResource.id))}>View File</Button>
-                                </div>
-                            )}
-                             <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
-                                 <h5 className="text-sm font-semibold mb-2">Metadata</h5>
-                                  <div className="flex gap-4">
-                                    <div>
-                                        <label className="text-xs text-gray-400">Folder</label>
-                                        <Input value={activeResource.folder || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { folder: e.target.value })} placeholder="e.g., UNI" />
+                                )}
+                                {(activeResource.type === 'link' || activeResource.type === 'tool') && (
+                                    <div className="space-y-2">
+                                        <Input value={activeResource.url || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { url: e.target.value })} />
+                                        <textarea value={activeResource.description || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { description: e.target.value })} placeholder="Description..." rows={4} className="glass-textarea w-full text-sm" />
                                     </div>
-                                    <div>
-                                        <label className="text-xs text-gray-400">Tags (comma-separated)</label>
-                                        <Input value={(activeResource.tags || []).join(', ')} onChange={e => updateResource(activeResource.id, activeResource.type, { tags: e.target.value.split(',').map(t=>t.trim()).filter(Boolean) })} placeholder="e.g., important, to-read" />
+                                )}
+                                {activeResource.type === 'file' && (
+                                     <div className="space-y-2 text-sm text-gray-300">
+                                        <p><strong>Type:</strong> {activeResource.mimeType}</p>
+                                        <p><strong>Size:</strong> {activeResource.size ? (activeResource.size / 1024).toFixed(2) : 0} KB</p>
+                                        <Button onClick={async () => setViewingFile(await getFile(activeResource.id))}>View File</Button>
                                     </div>
-                                  </div>
+                                )}
+                                 <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+                                     <h5 className="text-sm font-semibold mb-2">Metadata</h5>
+                                      <div className="flex flex-col md:flex-row gap-4">
+                                        <div className="flex-1">
+                                            <label className="text-xs text-gray-400">Folder</label>
+                                            <Input value={activeResource.folder || ''} onChange={e => updateResource(activeResource.id, activeResource.type, { folder: e.target.value })} placeholder="e.g., UNI" className="text-sm" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-xs text-gray-400">Tags</label>
+                                            <Input value={(activeResource.tags || []).join(', ')} onChange={e => updateResource(activeResource.id, activeResource.type, { tags: e.target.value.split(',').map(t=>t.trim()).filter(Boolean) })} placeholder="e.g., important" className="text-sm" />
+                                        </div>
+                                      </div>
+                                 </div>
                              </div>
                         </>
                     ) : (
-                        <div className="flex items-center justify-center h-full text-gray-500">Select an item to view</div>
+                        <div className="flex items-center justify-center h-full text-gray-500 text-center p-4">
+                             {isMobile ? "Select a note from the list." : "Select an item to view or edit."}
+                        </div>
                     )}
                 </div>
             </DropZone>

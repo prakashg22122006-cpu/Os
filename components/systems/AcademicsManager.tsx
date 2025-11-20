@@ -7,6 +7,7 @@ import { Semester, Course, Assignment, StoredFile } from '../../types';
 import { getFile, addFile } from '../../utils/db';
 import Card from '../ui/Card';
 import DropZone from '../ui/DropZone';
+import { useMobile } from '../../hooks/useMobile';
 
 const downloadJSON = (obj: any, name = 'export.json') => {
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
@@ -153,7 +154,8 @@ const CourseAddModal: React.FC<{ onSave: (course: Course) => void, onClose: () =
 const CourseDetailPanel: React.FC<{
     course: Course;
     onUpdate: (updatedCourse: Course) => void;
-}> = ({ course, onUpdate }) => {
+    onBack?: () => void; // Added for mobile
+}> = ({ course, onUpdate, onBack }) => {
     const { setViewingFile, setNotifications } = useAppContext();
     const [localCourse, setLocalCourse] = useState<Course>(course);
     const [activeTab, setActiveTab] = useState<'overview' | 'assignments' | 'resources' | 'grades'>('overview');
@@ -277,9 +279,16 @@ const CourseDetailPanel: React.FC<{
     if (!localCourse) return <div className="p-4 text-gray-400">Loading course details...</div>;
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col bg-[var(--bg-offset)]">
+            {onBack && (
+                <div className="p-2 border-b border-white/10 md:hidden">
+                    <Button variant="glass" onClick={onBack} className="text-xs flex items-center gap-1">
+                        ← Back to Courses
+                    </Button>
+                </div>
+            )}
             <div className="p-4 pb-0 flex-shrink-0">
-                 <Input value={localCourse.name} onChange={e => handleChange('name', e.target.value)} className="text-2xl font-bold !p-1 !border-0 mb-2 bg-transparent" />
+                 <Input value={localCourse.name} onChange={e => handleChange('name', e.target.value)} className="text-xl md:text-2xl font-bold !p-1 !border-0 mb-2 bg-transparent" />
                  <div className="flex gap-4 text-sm text-gray-400 mb-4">
                      <span>Credits: {localCourse.credits}</span>
                      <span>Grade: {localCourse.grade || 'N/A'}</span>
@@ -300,7 +309,7 @@ const CourseDetailPanel: React.FC<{
             <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
                 {activeTab === 'overview' && (
                     <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                              <Card title="Course Info">
                                  <div className="space-y-2 p-2">
                                      <Input value={localCourse.instructor || ''} onChange={e => handleChange('instructor', e.target.value)} placeholder="Instructor Name" />
@@ -445,6 +454,7 @@ const AcademicsManager: React.FC = () => {
     const [selectedCourseKey, setSelectedCourseKey] = useState<string | null>(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const isMobile = useMobile();
     
     // Modal States
     const [showSemesterModal, setShowSemesterModal] = useState(false);
@@ -529,6 +539,10 @@ const AcademicsManager: React.FC = () => {
         }
     };
 
+    // Mobile view logic: If a course is selected, hide the list on mobile.
+    const showList = !isMobile || !selectedCourse;
+    const showDetail = selectedCourse;
+
     return (
         <div ref={containerRef} className={`flex flex-col bg-transparent rounded-xl ${isFullScreen ? 'fixed inset-0 z-50 bg-[var(--bg)] p-4' : 'h-full'}`}>
             {showSemesterModal && (
@@ -545,14 +559,16 @@ const AcademicsManager: React.FC = () => {
                 />
             )}
 
-            <div className="flex-shrink-0 flex justify-between items-center mb-4 px-4 pt-4">
-                <h2 className="text-xl font-bold hidden md:block">Academics Manager</h2>
-                <div className="flex gap-2">
-                    <Button variant="glass" onClick={handleOpenAddSemester} className="text-xs md:text-sm">+ New Semester</Button>
-                    <Button variant="glass" onClick={() => downloadJSON(semesters, 'academics.json')} className="text-xs md:text-sm hidden sm:block">Export</Button>
-                    <Button variant="glass" onClick={toggleFullScreen} className="text-xs md:text-sm">{isFullScreen ? 'Exit Full' : 'Full Screen'}</Button>
+            {showList && (
+                <div className="flex-shrink-0 flex justify-between items-center mb-4 px-4 pt-4">
+                    <h2 className="text-xl font-bold hidden md:block">Academics Manager</h2>
+                    <div className="flex gap-2 w-full md:w-auto justify-end">
+                        <Button variant="glass" onClick={handleOpenAddSemester} className="text-xs md:text-sm flex-1 md:flex-none">+ New Semester</Button>
+                        <Button variant="glass" onClick={() => downloadJSON(semesters, 'academics.json')} className="text-xs md:text-sm hidden sm:block">Export</Button>
+                        <Button variant="glass" onClick={toggleFullScreen} className="text-xs md:text-sm">{isFullScreen ? 'Exit Full' : 'Full Screen'}</Button>
+                    </div>
                 </div>
-            </div>
+            )}
             
             {semesters.length === 0 ? (
                  <div className="flex-grow flex flex-col items-center justify-center text-center p-8 opacity-60">
@@ -562,8 +578,9 @@ const AcademicsManager: React.FC = () => {
                      <Button onClick={handleOpenAddSemester} className="px-8 py-3 text-lg">Create First Semester</Button>
                  </div>
             ) : (
-                <div className="flex-grow flex overflow-hidden">
-                    <div className="w-1/3 flex-shrink-0 border-r border-[var(--border-color)] p-2 overflow-y-auto custom-scrollbar">
+                <div className="flex-grow flex overflow-hidden relative">
+                    {/* Sidebar List */}
+                    <div className={`${showList ? 'flex' : 'hidden'} w-full md:w-1/3 flex-col flex-shrink-0 md:border-r border-[var(--border-color)] p-2 overflow-y-auto custom-scrollbar bg-[var(--bg)] md:bg-transparent z-10`}>
                         {semesters.map((semester, semIndex) => (
                             <div key={semester.name} className="mb-4 bg-white/5 rounded-lg overflow-hidden border border-white/5">
                                 <div className="flex justify-between items-center p-3 bg-white/5 cursor-default">
@@ -599,12 +616,15 @@ const AcademicsManager: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                    <div className="flex-grow w-2/3 min-w-0 bg-black/10 border-l border-white/5">
+                    
+                    {/* Detail Panel */}
+                    <div className={`${showDetail ? 'flex' : 'hidden md:flex'} flex-col flex-grow w-full md:w-2/3 min-w-0 bg-black/10 border-l border-white/5 absolute md:relative inset-0 z-20 md:z-auto`}>
                         {selectedCourse ? (
                             <CourseDetailPanel 
                                 key={selectedCourseKey} // Force re-render on course switch to reset state
                                 course={selectedCourse}
                                 onUpdate={(updated) => handleUpdateCourse(selectedSemIndex, selectedCourseIndex, updated)}
+                                onBack={() => setSelectedCourseKey(null)}
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4 text-center">

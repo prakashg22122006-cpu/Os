@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 
@@ -22,7 +20,6 @@ import DeepWorkManager from '../systems/DeepWorkManager';
 // Dashboard Widgets re-used for context
 import ClassesWidget from '../dashboard/ClassesWidget';
 import QuickNote from '../dashboard/QuickNote';
-import ClockCalendar from '../dashboard/ClockCalendar';
 
 // Icons
 const Icons = {
@@ -158,7 +155,7 @@ const UpcomingEvents: React.FC = () => {
 const CSWorkspace: React.FC = () => {
     const [activePageId, setActivePageId] = useState<PageId>('home');
     const [activeToolId, setActiveToolId] = useState<ToolId>('code');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
     const [searchQuery, setSearchQuery] = useState('');
 
     const pages: PageConfig[] = [
@@ -170,7 +167,7 @@ const CSWorkspace: React.FC = () => {
         { id: 'deepwork', label: 'Deep Work', icon: <Icons.Brain />, component: <DeepWorkManager /> },
         { id: 'tasks', label: 'Task List', icon: <Icons.Tasks />, component: <TaskManager /> },
         { id: 'analytics', label: 'Analytics', icon: <Icons.Analytics />, component: <AnalyticsManager /> },
-        { id: 'resources', label: 'Resources', icon: <Icons.Resources />, component: <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full"><NotesManager /><FileManager /></div> },
+        { id: 'resources', label: 'Resources', icon: <Icons.Resources />, component: <div className="flex flex-col lg:flex-row gap-4 h-full overflow-y-auto"><div className="flex-1 min-h-[400px]"><NotesManager /></div><div className="flex-1 min-h-[400px]"><FileManager /></div></div> },
         { id: 'collaboration', label: 'Collaboration', icon: <Icons.Collaboration />, component: <CollaborationWidget /> },
         { id: 'tools', label: 'Tools', icon: <Icons.Tools />, component: null }, 
         { id: 'search', label: 'Search', icon: <Icons.Search />, component: <GlobalSearch /> },
@@ -179,9 +176,9 @@ const CSWorkspace: React.FC = () => {
 
     // Dedicated Home Dashboard View
     const HomeDashboard = () => (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-full overflow-y-auto p-2">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 h-full overflow-y-auto p-2">
             {/* Top Row: Quick Stats & Alerts */}
-            <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4 h-max">
+            <div className="col-span-1 md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4 h-max">
                  <div className="bg-[rgba(255,255,255,0.03)] p-4 rounded-xl border border-white/5 h-64 flex flex-col">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="font-bold text-gray-200">Today's Schedule</h3>
@@ -203,13 +200,13 @@ const CSWorkspace: React.FC = () => {
             </div>
 
             {/* Right Column: Assignments & Events */}
-            <div className="md:col-span-4 grid grid-rows-2 gap-4 h-[calc(100vh-200px)] md:h-auto">
+            <div className="col-span-1 md:col-span-4 grid grid-rows-2 gap-4 h-auto">
                  <AssignmentsAggregator />
                  <UpcomingEvents />
             </div>
 
             {/* Bottom Row: Quick Note / Bulletin */}
-            <div className="md:col-span-12 h-64">
+            <div className="col-span-1 md:col-span-12 h-64">
                  <div className="h-full bg-[rgba(255,255,255,0.03)] rounded-xl border border-white/5 p-4 flex flex-col">
                     <h3 className="font-bold text-gray-200 mb-2">Quick Notes / Bulletin</h3>
                     <div className="flex-grow overflow-hidden relative">
@@ -225,14 +222,14 @@ const CSWorkspace: React.FC = () => {
         if (activePageId === 'home') return <HomeDashboard />;
         if (activePageId === 'assignments') return (
              <div className="h-full flex flex-col">
-                <div className="mb-4"><h2 className="text-2xl font-bold mb-2">Assignments</h2></div>
+                <div className="mb-4 flex-shrink-0"><h2 className="text-2xl font-bold mb-2">Assignments</h2></div>
                 <div className="flex-grow bg-black/20 rounded-xl p-4 overflow-hidden"><AcademicsManager /></div>
             </div>
         );
         if (activePageId === 'tools') {
             return (
                 <div className="h-full flex flex-col">
-                    <div className="flex gap-4 mb-4 border-b border-white/10 pb-2">
+                    <div className="flex gap-4 mb-4 border-b border-white/10 pb-2 flex-shrink-0 overflow-x-auto">
                         <button onClick={() => setActiveToolId('code')} className={`px-4 py-2 rounded-lg transition-all ${activeToolId === 'code' ? 'bg-[var(--grad-1)] text-white' : 'text-gray-400 hover:bg-white/5'}`}>Code Editor</button>
                         <button onClick={() => setActiveToolId('flashcards')} className={`px-4 py-2 rounded-lg transition-all ${activeToolId === 'flashcards' ? 'bg-[var(--grad-1)] text-white' : 'text-gray-400 hover:bg-white/5'}`}>Flashcards</button>
                     </div>
@@ -256,13 +253,14 @@ const CSWorkspace: React.FC = () => {
 
             {/* Sidebar */}
             <aside 
-                className={`absolute md:relative z-30 h-full bg-[#111] border-r border-white/5 transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:translate-x-0 md:w-0 overflow-hidden'}`}
+                className={`absolute md:relative z-30 h-full bg-[#111] border-r border-white/5 transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full md:translate-x-0 md:w-64 overflow-hidden'}`}
             >
-                <div className="p-5 flex items-center gap-3 border-b border-white/5">
+                <div className="p-5 flex items-center gap-3 border-b border-white/5 flex-shrink-0">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold">
                         S
                     </div>
                     <span className="font-bold text-lg tracking-tight text-white">Student OS</span>
+                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-auto text-gray-400">✕</button>
                 </div>
                 
                 <div className="flex-grow overflow-y-auto py-4 px-3 space-y-1">
@@ -303,7 +301,7 @@ const CSWorkspace: React.FC = () => {
                     ))}
                 </div>
 
-                <div className="p-4 border-t border-white/5">
+                <div className="p-4 border-t border-white/5 flex-shrink-0">
                     <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5">
                         <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs">U</div>
                         <div className="overflow-hidden">
@@ -317,12 +315,12 @@ const CSWorkspace: React.FC = () => {
             {/* Main Content Area */}
             <main className="flex-grow flex flex-col min-w-0 relative">
                 {/* Top Header */}
-                <header className="h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-6 bg-[#0f0f0f]/50 backdrop-blur-md z-10">
+                <header className="h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-6 bg-[#0f0f0f]/50 backdrop-blur-md z-10 flex-shrink-0">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-gray-400 hover:text-white transition-colors">
+                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden text-gray-400 hover:text-white transition-colors">
                             <Icons.Menu />
                         </button>
-                        <h1 className="text-xl font-semibold text-white hidden sm:block">{pages.find(p => p.id === activePageId)?.label}</h1>
+                        <h1 className="text-lg md:text-xl font-semibold text-white truncate">{pages.find(p => p.id === activePageId)?.label}</h1>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -347,7 +345,7 @@ const CSWorkspace: React.FC = () => {
                 </header>
 
                 {/* Scrollable View */}
-                <div className="flex-grow overflow-hidden relative p-4 md:p-6 bg-[#0f0f0f]">
+                <div className="flex-grow overflow-hidden relative p-2 md:p-6 bg-[#0f0f0f]">
                      {renderContent()}
                 </div>
             </main>

@@ -5,6 +5,7 @@ import Input from '../ui/Input';
 import { addFile, getFiles, getFile, deleteFile, updateFileMetadata } from '../../utils/db';
 import { StoredFile, LinkResource } from '../../types';
 import { useAppContext } from '../../context/AppContext';
+import { useMobile } from '../../hooks/useMobile';
 
 // --- ICONS ---
 const FolderIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -114,7 +115,8 @@ const DetailsPanel: React.FC<{
     onDeleteFile: (id: number) => void;
     onDeleteLink: (id: number) => void;
     allFolders: string[];
-}> = ({ resource, onUpdateFile, onUpdateLink, onDeleteFile, onDeleteLink, allFolders }) => {
+    onClose?: () => void; // For mobile close
+}> = ({ resource, onUpdateFile, onUpdateLink, onDeleteFile, onDeleteLink, allFolders, onClose }) => {
     const { setViewingFile } = useAppContext();
     const [title, setTitle] = useState(resource.title);
     const [tagInput, setTagInput] = useState('');
@@ -179,11 +181,13 @@ const DetailsPanel: React.FC<{
         } else {
             onDeleteLink(resource.id);
         }
+        if(onClose) onClose();
     };
 
     return (
-        <div className="w-full md:w-1/4 flex flex-col gap-4">
-            <div className="h-48 bg-black/20 rounded-lg overflow-hidden border border-border-color"><ResourceThumbnail resource={resource} /></div>
+        <div className="w-full md:w-1/4 flex flex-col gap-4 p-2 md:p-0 bg-[#151515] md:bg-transparent h-full overflow-y-auto absolute md:static top-0 left-0 z-20 md:z-0">
+            {onClose && <Button variant="glass" className="md:hidden" onClick={onClose}>← Back</Button>}
+            <div className="h-48 bg-black/20 rounded-lg overflow-hidden border border-border-color flex-shrink-0"><ResourceThumbnail resource={resource} /></div>
             <Input value={title} onChange={e => setTitle(e.target.value)} onBlur={handleTitleBlur} />
             <div className="text-xs text-gray-400 space-y-1 bg-black/20 p-2 rounded-lg border border-border-color">
                 <p><strong>Type:</strong> <span className="capitalize">{resource.type}</span> {resource.type === 'file' && `(${resource.mimeType})`}</p>
@@ -216,7 +220,7 @@ const DetailsPanel: React.FC<{
                     ))}
                 </div>
             </div>
-            <div className="flex gap-2 mt-auto">
+            <div className="flex gap-2 mt-auto pb-4">
                 <Button variant="outline" className="flex-1" onClick={handleView}>View</Button>
                 <Button variant="outline" className="flex-1 text-red-400 border-red-500/50 hover:bg-red-500/10" onClick={handleDelete}>Delete</Button>
             </div>
@@ -266,13 +270,13 @@ const LinkEditorModal: React.FC<{
 
 
 const EmptyState: React.FC<{ onUpload: () => void; onAddLink: () => void; }> = ({ onUpload, onAddLink }) => (
-    <div className="h-[40rem] flex flex-col items-center justify-center text-center text-gray-400">
+    <div className="h-[40rem] flex flex-col items-center justify-center text-center text-gray-400 p-4">
         <FilePlusIcon className="w-20 h-20 opacity-30 mb-4" />
         <h3 className="text-xl font-semibold text-gray-200">Your Digital Resource Cabinet</h3>
         <p className="max-w-md mt-2 mb-6">Upload lecture notes, save links to study materials, and keep track of useful tools—all in one place.</p>
-        <div className="flex gap-4">
-            <Button onClick={onUpload} className="flex items-center gap-2"><UploadIcon /> Upload File</Button>
-            <Button onClick={onAddLink} className="flex items-center gap-2"><LinkIcon /> Add Link/Tool</Button>
+        <div className="flex flex-col sm:flex-row gap-4">
+            <Button onClick={onUpload} className="flex items-center justify-center gap-2"><UploadIcon /> Upload File</Button>
+            <Button onClick={onAddLink} className="flex items-center justify-center gap-2"><LinkIcon /> Add Link/Tool</Button>
         </div>
     </div>
 );
@@ -290,6 +294,8 @@ const FileManager: React.FC = () => {
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [editingLink, setEditingLink] = useState<Partial<LinkResource> | null>(null);
+    const isMobile = useMobile();
+    const [mobileShowSidebar, setMobileShowSidebar] = useState(true);
 
     const loadFiles = useCallback(async () => { setAllDbFiles(await getFiles()); }, []);
     useEffect(() => { loadFiles(); }, [loadFiles]);
@@ -386,26 +392,32 @@ const FileManager: React.FC = () => {
     }
 
     return (
-        <div className="flex flex-col md:flex-row gap-4 h-[40rem]">
+        <div className="flex flex-col md:flex-row gap-4 h-[80vh] md:h-[40rem] relative">
             {editingLink && <LinkEditorModal resource={editingLink} onSave={handleSaveLink} onClose={() => setEditingLink(null)} />}
             
-            <div className="w-full md:w-1/4 border-r border-border-color pr-4 flex flex-col">
+            {isMobile && (
+                <div className="absolute top-0 right-0 z-20 p-2">
+                    <Button variant="glass" className="text-xs" onClick={() => setMobileShowSidebar(!mobileShowSidebar)}>{mobileShowSidebar ? 'Hide Folders' : 'Show Folders'}</Button>
+                </div>
+            )}
+
+            <div className={`${mobileShowSidebar ? 'flex' : 'hidden'} w-full md:w-1/4 md:border-r border-border-color pr-0 md:pr-4 flex-col order-2 md:order-1 md:flex flex-shrink-0`}>
                  <div className="flex gap-2 w-full mb-4">
-                    <Button variant="glass" onClick={() => setEditingLink({})} className="flex-1 flex items-center justify-center gap-2"><LinkIcon className="h-4 w-4"/> Add Link</Button>
-                    <Button variant="outline" onClick={handleNewFolder} className="flex-1 flex items-center justify-center gap-2"><FolderIcon /> New Folder</Button>
+                    <Button variant="glass" onClick={() => setEditingLink({})} className="flex-1 flex items-center justify-center gap-2 text-xs md:text-sm"><LinkIcon className="h-4 w-4"/> Add Link</Button>
+                    <Button variant="outline" onClick={handleNewFolder} className="flex-1 flex items-center justify-center gap-2 text-xs md:text-sm"><FolderIcon /> New Folder</Button>
                 </div>
                 <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-gray-400"><FolderIcon /> Folders</h4>
-                <div className="space-y-1 mb-4">
+                <div className="flex flex-wrap md:block gap-2 space-y-0 md:space-y-1 mb-4 max-h-40 md:max-h-[50%] overflow-y-auto">
                     {folders.map(f => (
-                        <button key={f} onClick={() => setSelectedFolder(f)} className={`w-full text-left p-1.5 rounded text-sm flex items-center gap-2 ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5 text-gray-400'}`}>
-                            {f === '/' ? '🗂️' : <FolderIcon className="h-4 w-4"/>} {f === '/' ? 'All Resources' : f}
+                        <button key={f} onClick={() => { setSelectedFolder(f); if(isMobile) setMobileShowSidebar(false); }} className={`px-3 py-1.5 md:w-full text-left md:p-1.5 rounded text-sm flex items-center gap-2 ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5 text-gray-400 bg-white/5 md:bg-transparent'}`}>
+                            {f === '/' ? '🗂️' : <FolderIcon className="h-4 w-4"/>} {f === '/' ? 'All' : f}
                         </button>
                     ))}
                 </div>
                 <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-gray-400"><TagIcon /> Tags</h4>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 overflow-y-auto flex-grow">
                     {allTags.map(tag => (
-                        <button key={tag} onClick={() => setSelectedTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag])} 
+                        <button key={tag} onClick={() => { setSelectedTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag]); if(isMobile) setMobileShowSidebar(false); }} 
                         className={`text-xs px-2 py-1 rounded-full border ${selectedTags.includes(tag) ? 'bg-[var(--grad-1)]/30 text-[var(--grad-1)] border-[var(--grad-1)]/50' : 'bg-white/5 border-transparent'}`}>
                             {tag}
                         </button>
@@ -413,24 +425,24 @@ const FileManager: React.FC = () => {
                 </div>
             </div>
 
-            <div className="w-full md:w-2/4 flex flex-col">
-                <div className="flex gap-2 mb-2 flex-shrink-0">
-                    <div className="relative flex-grow">
+            <div className="w-full md:w-2/4 flex flex-col order-1 md:order-2 h-full min-w-0">
+                <div className="flex gap-2 mb-2 flex-shrink-0 flex-wrap">
+                    <div className="relative flex-grow min-w-[150px]">
                         <SearchIcon className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
-                        <Input placeholder="Search resources..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10" />
+                        <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10 text-sm" />
                     </div>
                     <div className="flex bg-bg-offset border border-border-color rounded-lg p-0.5">
                         <Button variant={viewMode === 'list' ? 'primary' : 'outline'} onClick={() => setViewMode('list')} className="!p-1.5 !border-0"><ListIcon /></Button>
                         <Button variant={viewMode === 'grid' ? 'primary' : 'outline'} onClick={() => setViewMode('grid')} className="!p-1.5 !border-0"><GridIcon /></Button>
                     </div>
-                    <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2"><UploadIcon /> Upload</Button>
+                    <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-xs md:text-sm"><UploadIcon /> Upload</Button>
                     <input type="file" multiple ref={fileInputRef} onChange={e => handleUpload(e.target.files)} className="hidden" />
                 </div>
                 <div onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }} onDragLeave={() => setIsDraggingOver(false)} onDrop={handleDrop} className="relative flex-grow border border-dashed border-border-color rounded-lg p-2 overflow-y-auto">
                     {isDraggingOver && <div className="absolute inset-0 bg-[var(--grad-1)]/20 backdrop-blur-sm z-10 flex items-center justify-center text-lg font-semibold border-2 border-dashed border-[var(--grad-1)] rounded-lg pointer-events-none"><UploadIcon className="mr-2"/> Drop files to upload</div>}
                     {isUploading ? <p className="text-center p-8">Uploading...</p> : (
                         viewMode === 'grid' ? (
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2">
                                 {filteredResources.map(res => (
                                     <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`aspect-square bg-black/20 rounded-lg overflow-hidden cursor-pointer border-2 ${selectedResourceId === res.id && selectedResourceType === res.type ? 'border-[var(--grad-1)]' : 'border-transparent'}`}>
                                         <div className="w-full h-full relative group">
@@ -458,9 +470,17 @@ const FileManager: React.FC = () => {
             </div>
 
             {selectedResource ? (
-                <DetailsPanel resource={selectedResource} onUpdateFile={handleUpdateFile} onUpdateLink={handleUpdateLink} onDeleteFile={handleDeleteFile} onDeleteLink={handleDeleteLink} allFolders={folders} />
+                <DetailsPanel 
+                    resource={selectedResource} 
+                    onUpdateFile={handleUpdateFile} 
+                    onUpdateLink={handleUpdateLink} 
+                    onDeleteFile={handleDeleteFile} 
+                    onDeleteLink={handleDeleteLink} 
+                    allFolders={folders} 
+                    onClose={() => setSelectedResourceId(null)}
+                />
             ) : (
-                <div className="w-full md:w-1/4 flex items-center justify-center bg-black/20 rounded-lg text-gray-400 text-center p-4 border border-border-color">
+                <div className="hidden md:flex w-full md:w-1/4 items-center justify-center bg-black/20 rounded-lg text-gray-400 text-center p-4 border border-border-color order-3">
                     <div>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
                         Select a resource to see details
