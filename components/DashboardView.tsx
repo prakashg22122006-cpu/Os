@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useAppContext } from '../../context/AppContext';
-import { useMobile } from '../../hooks/useMobile';
+import { useAppContext } from '../context/AppContext';
+import { useMobile } from '../hooks/useMobile';
 import ClockCalendar from './dashboard/ClockCalendar';
 
 // Widgets & Systems Imports
@@ -25,7 +25,7 @@ import SettingsManager from './systems/SettingsManager';
 import AnalyticsManager from './systems/AnalyticsManager';
 import CodeEditorWidget from './systems/CodeEditorWidget';
 import CollaborationWidget from './systems/CollaborationWidget';
-import { Class } from '../../types';
+import { Class } from '../types';
 
 // --- Mini Widget Components ---
 
