@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Class, StoredFile } from '../../types';
@@ -6,8 +5,6 @@ import Button from './Button';
 import Input from './Input';
 import RichTextEditor from './RichTextEditor';
 import { addFile, getFile } from '../../utils/db';
-
-const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const ScheduleEditorModal: React.FC = () => {
     const { viewingScheduleItem, setViewingScheduleItem, classes, setClasses, setViewingFile } = useAppContext();
@@ -19,7 +16,6 @@ const ScheduleEditorModal: React.FC = () => {
         if (viewingScheduleItem) {
             setItemData({
                 ...viewingScheduleItem,
-                day: viewingScheduleItem.day || new Date().toLocaleDateString('en-US', { weekday: 'long' }),
                 attachments: viewingScheduleItem.attachments || [],
                 note_richtext: viewingScheduleItem.note_richtext || '',
             });
@@ -56,7 +52,6 @@ const ScheduleEditorModal: React.FC = () => {
                 name: 'New Event',
                 time: '09:00',
                 location: '',
-                day: 'Monday',
                 ...itemData
             };
             setClasses(prev => [newItem, ...prev]);
@@ -92,71 +87,62 @@ const ScheduleEditorModal: React.FC = () => {
     };
 
     return (
-        <div className="modal-overlay" onClick={handleClose}>
-            <div className="modal-content glass-panel w-full max-w-2xl h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <header className="p-4 border-b border-border-color flex-shrink-0">
-                    <Input value={itemData.name || ''} onChange={e => handleChange('name', e.target.value)} placeholder="Event Name" className="text-xl font-bold !p-1 !border-0 bg-transparent" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={handleClose}>
+            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[#5aa1ff]/20 rounded-xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <header className="p-3 border-b border-white/10 flex-shrink-0">
+                    <Input value={itemData.name || ''} onChange={e => handleChange('name', e.target.value)} placeholder="Event Name" className="text-lg font-semibold !p-1" />
                 </header>
-                <main className="p-4 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2 space-y-6">
+                <main className="p-4 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 space-y-4">
                         <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">Notes</label>
+                            <label className="text-sm font-semibold text-gray-400">Notes</label>
                             <div className="h-48 mt-1">
                                 <RichTextEditor value={itemData.note_richtext || ''} onChange={(content) => handleChange('note_richtext', content)} />
                             </div>
                         </div>
-                         <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">Attachments</label>
-                            <Button variant="glass" className="text-xs" onClick={() => attachFileRef.current?.click()}>+ Attach File</Button>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-400">Attachments</label>
+                            <Button variant="outline" className="text-xs mt-1" onClick={() => attachFileRef.current?.click()}>+ Attach File</Button>
                             <input type="file" ref={attachFileRef} onChange={handleAttachFile} className="hidden" />
                             <div className="space-y-1 mt-2 max-h-24 overflow-y-auto pr-2">
                                 {attachedFiles.map(file => (
-                                    <div key={file.id} className="flex items-center justify-between p-2 bg-black/30 rounded text-sm group">
-                                        <span className="truncate pr-2 cursor-pointer" onClick={async () => setViewingFile(await getFile(file.id) as any)}>{file.name}</span>
-                                        <button className="text-text-dim opacity-0 group-hover:opacity-100" onClick={() => handleRemoveAttachment(file.id)}>×</button>
+                                    <div key={file.id} className="flex items-center justify-between p-1 bg-black/20 rounded text-sm">
+                                        <span className="truncate pr-2">{file.name}</span>
+                                        <div className="flex-shrink-0 flex gap-1">
+                                            <Button variant="outline" className="text-xs !p-1" onClick={() => setViewingFile(file as any)}>View</Button>
+                                            <Button variant="outline" className="text-xs !p-1" onClick={() => handleRemoveAttachment(file.id)}>X</Button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
-                    <div className="space-y-6">
-                         <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">Day of Week</label>
-                             <select 
-                                value={itemData.day || 'Monday'} 
-                                onChange={e => handleChange('day', e.target.value)}
-                                className="glass-select w-full"
-                            >
-                                {DAYS_OF_WEEK.map(day => (
-                                    <option key={day} value={day}>{day}</option>
-                                ))}
-                            </select>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm font-semibold text-gray-400">Start Time</label>
+                            <Input type="time" value={itemData.time || ''} onChange={e => handleChange('time', e.target.value)} className="mt-1" />
                         </div>
                         <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">Start Time</label>
-                            <Input type="time" value={itemData.time || ''} onChange={e => handleChange('time', e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">End Time</label>
-                            <Input type="time" value={itemData.endTime || ''} onChange={e => handleChange('endTime', e.target.value)} />
+                            <label className="text-sm font-semibold text-gray-400">End Time</label>
+                            <Input type="time" value={itemData.endTime || ''} onChange={e => handleChange('endTime', e.target.value)} className="mt-1" />
                         </div>
                          <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">Location</label>
-                            <Input value={itemData.location || ''} onChange={e => handleChange('location', e.target.value)} placeholder="e.g., Library" />
+                            <label className="text-sm font-semibold text-gray-400">Location</label>
+                            <Input value={itemData.location || ''} onChange={e => handleChange('location', e.target.value)} placeholder="e.g., Library Room 201" className="mt-1" />
                         </div>
                          <div>
-                            <label className="text-sm font-semibold text-text-dim mb-2">Color Tag</label>
-                            <Input type="color" value={itemData.color || '#8E2DE2'} onChange={e => handleChange('color', e.target.value)} className="w-full h-10 p-1 bg-transparent border-0" />
+                            <label className="text-sm font-semibold text-gray-400">Color Tag</label>
+                            <Input type="color" value={itemData.color || '#5aa1ff'} onChange={e => handleChange('color', e.target.value)} className="mt-1 w-full h-10 p-1" />
                         </div>
                     </div>
                 </main>
-                <footer className="p-4 flex justify-between border-t border-border-color flex-shrink-0">
+                <footer className="p-3 flex justify-between border-t border-white/10 flex-shrink-0">
                     <div>
-                        {itemData.ts && <Button variant="glass" className="text-red-400 border-red-500/30 hover:bg-red-500/20" onClick={handleDelete}>Delete</Button>}
+                        {itemData.ts && <Button variant="outline" className="text-red-400 border-red-500/50 hover:bg-red-500/10" onClick={handleDelete}>Delete Event</Button>}
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="glass" onClick={handleClose}>Cancel</Button>
-                        <Button variant="gradient" onClick={handleSave}>Save</Button>
+                        <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                        <Button onClick={handleSave}>Save</Button>
                     </div>
                 </footer>
             </div>

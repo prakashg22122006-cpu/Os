@@ -1,13 +1,18 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { Semester, Course, Assignment, StoredFile } from '../../types';
-import { getFile, addFile } from '../../utils/db';
+import { Semester, Course, StoredFile, AttendanceRecord, Assignment, Exam, Resource, Module, Quiz } from '../../types';
+import { addFile, getFile, getFiles } from '../../utils/db';
 import Card from '../ui/Card';
-import DropZone from '../ui/DropZone';
-import { useMobile } from '../../hooks/useMobile';
+
+
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+    <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+        {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+    </h3>
+);
 
 const downloadJSON = (obj: any, name = 'export.json') => {
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
@@ -15,438 +20,38 @@ const downloadJSON = (obj: any, name = 'export.json') => {
     const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
 };
 
-// --- Attachment Component ---
-const AttachmentItem: React.FC<{ fileId: number, onRemove: () => void }> = ({ fileId, onRemove }) => {
-    const { setViewingFile } = useAppContext();
-    const [file, setFile] = useState<StoredFile | null>(null);
-    
-    useEffect(() => {
-        getFile(fileId).then(f => { if (f) setFile(f); });
-    }, [fileId]);
-
-    if (!file) return <div className="animate-pulse h-10 bg-white/5 rounded mb-2"></div>;
-
-    return (
-        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 group hover:bg-white/10 transition-all">
-            <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => setViewingFile(file as any)}>
-                <div className="w-8 h-8 rounded bg-black/20 flex items-center justify-center text-lg">
-                    {file.type.includes('image') ? '🖼️' : file.type.includes('pdf') ? '📄' : '📁'}
-                </div>
-                <div className="flex flex-col min-w-0">
-                     <span className="truncate text-sm font-medium text-gray-200">{file.name}</span>
-                     <span className="text-[10px] text-gray-500">{(file.size / 1024).toFixed(1)} KB • {new Date(file.ts).toLocaleDateString()}</span>
-                </div>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-2 text-gray-500 hover:text-red-400 hover:bg-white/10 rounded-full transition-all opacity-0 group-hover:opacity-100">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </button>
-        </div>
-    );
-};
-
-// --- Modals ---
-
-const SemesterModal: React.FC<{ 
-    semester?: Semester; 
-    onSave: (data: Semester) => void; 
-    onClose: () => void 
-}> = ({ semester, onSave, onClose }) => {
-    const [name, setName] = useState(semester?.name || '');
-    const [department, setDepartment] = useState(semester?.department || '');
-    const [year, setYear] = useState(semester?.year || '');
+const SemesterEditModal: React.FC<{ semester: Semester, onSave: (data: Partial<Semester>) => void, onClose: () => void }> = ({ semester, onSave, onClose }) => {
+    const [department, setDepartment] = useState(semester.department || '');
+    const [year, setYear] = useState(semester.year || '');
 
     const handleSave = () => {
-        if (!name.trim()) return alert("Semester name is required");
-        onSave({ 
-            name, 
-            department, 
-            year, 
-            courses: semester?.courses || [] 
-        });
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[var(--grad-1)]/20 rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-zoomIn" onClick={(e) => e.stopPropagation()}>
-                <header className="p-4 border-b border-white/10 flex justify-between items-center">
-                    <h4 className="font-semibold text-lg text-white">{semester ? 'Edit Semester' : 'New Semester'}</h4>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
-                </header>
-                <main className="p-6 space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 mb-1.5 block uppercase tracking-wider">Semester Name</label>
-                        <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Fall 2024" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 mb-1.5 block uppercase tracking-wider">Department (Optional)</label>
-                        <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g., Computer Science" />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 mb-1.5 block uppercase tracking-wider">Academic Year (Optional)</label>
-                        <Input value={year} onChange={e => setYear(e.target.value)} placeholder="e.g., 2024-2025" />
-                    </div>
-                </main>
-                <footer className="p-4 flex gap-2 justify-end border-t border-white/10 bg-white/5">
-                    <Button variant="glass" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave}>{semester ? 'Save Changes' : 'Create Semester'}</Button>
-                </footer>
-            </div>
-        </div>
-    );
-};
-
-const CourseAddModal: React.FC<{ onSave: (course: Course) => void, onClose: () => void }> = ({ onSave, onClose }) => {
-    const [name, setName] = useState('');
-    const [credits, setCredits] = useState<number>(3);
-    const [grade, setGrade] = useState('');
-
-    const handleSave = () => {
-        if (!name.trim()) return alert('Course name is required');
-        const newCourse: Course = {
-            name,
-            credits,
-            grade,
-            attendance: [],
-            assignments: [],
-            exams: [],
-            resources: [],
-            modules: [],
-            quizzes: []
-        };
-        onSave(newCourse);
+        onSave({ department, year });
     };
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[var(--grad-1)]/20 rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-zoomIn" onClick={(e) => e.stopPropagation()}>
-                <header className="p-4 border-b border-white/10 flex justify-between items-center">
-                    <h4 className="font-semibold text-lg">Add New Course</h4>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[var(--accent-color)]/20 rounded-xl shadow-2xl w-full max-w-md flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <header className="p-3 border-b border-white/10">
+                    <h4 className="font-semibold text-lg">Edit Semester: {semester.name}</h4>
                 </header>
-                <main className="p-6 space-y-4">
+                <main className="p-4 space-y-3">
                     <div>
-                         <label className="text-xs font-bold text-gray-400 mb-1.5 block uppercase tracking-wider">Course Name</label>
-                         <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Calculus I" />
+                        <label className="text-sm font-medium text-gray-400">Department (optional)</label>
+                        <Input value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g., Computer Science" />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div>
-                            <label className="text-xs font-bold text-gray-400 mb-1.5 block uppercase tracking-wider">Credits</label>
-                            <Input type="number" value={credits} onChange={e => setCredits(Number(e.target.value))} placeholder="Credits" />
-                         </div>
-                         <div>
-                            <label className="text-xs font-bold text-gray-400 mb-1.5 block uppercase tracking-wider">Current Grade</label>
-                            <Input value={grade} onChange={e => setGrade(e.target.value)} placeholder="Grade (opt)" />
-                         </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-400">Academic Year (optional)</label>
+                        <Input value={year} onChange={e => setYear(e.target.value)} placeholder="e.g., 2024-2025" />
                     </div>
                 </main>
-                <footer className="p-4 flex gap-2 justify-end border-t border-white/10 bg-white/5">
-                    <Button variant="glass" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave}>Add Course</Button>
+                <footer className="p-3 flex gap-2 justify-end border-t border-white/10">
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleSave}>Save Changes</Button>
                 </footer>
             </div>
         </div>
     );
 };
-
-// --- Main Detail Panel ---
-
-const CourseDetailPanel: React.FC<{
-    course: Course;
-    onUpdate: (updatedCourse: Course) => void;
-    onBack?: () => void; // Added for mobile
-}> = ({ course, onUpdate, onBack }) => {
-    const { setViewingFile, setNotifications } = useAppContext();
-    const [localCourse, setLocalCourse] = useState<Course>(course);
-    const [activeTab, setActiveTab] = useState<'overview' | 'assignments' | 'resources' | 'grades'>('overview');
-    const [syllabusFileName, setSyllabusFileName] = useState<string | null>(null);
-    const syllabusInputRef = useRef<HTMLInputElement>(null);
-    const resourceInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        setLocalCourse({
-            ...course,
-            assignments: course?.assignments || [],
-            exams: course?.exams || [],
-            resources: course?.resources || [],
-            modules: course?.modules || [],
-            quizzes: course?.quizzes || [],
-            attendance: course?.attendance || [],
-            attachments: course?.attachments || []
-        });
-        if (course?.syllabusFileId) {
-            getFile(course.syllabusFileId).then(fileData => {
-                if (fileData) setSyllabusFileName(fileData.name);
-            })
-        } else {
-            setSyllabusFileName(null);
-        }
-    }, [course]);
-
-    const handleChange = (field: keyof Course, value: any) => {
-        setLocalCourse(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleSyllabusUpload = async (files: FileList | null) => {
-        const file = files?.[0];
-        if (file) {
-            try {
-                const fileId = await addFile(file);
-                const updatedCourse = { ...localCourse, syllabusFileId: fileId };
-                setLocalCourse(updatedCourse);
-                setSyllabusFileName(file.name);
-                onUpdate(updatedCourse); // Auto-save
-            } catch (error) {
-                alert('Failed to upload syllabus.');
-            }
-        }
-    };
-    
-    const handleResourceUpload = async (e: React.ChangeEvent<HTMLInputElement> | FileList) => {
-        const files = 'target' in e ? e.target.files : e;
-        if (!files || files.length === 0) return;
-        
-        try {
-            const newIds: number[] = [];
-            // Manually iterate over FileList to ensure correct type
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (file) {
-                    const id = await addFile(file);
-                    newIds.push(id);
-                }
-            }
-            const updatedAttachments = [...(localCourse.attachments || []), ...newIds];
-            const updatedCourse = { ...localCourse, attachments: updatedAttachments };
-            setLocalCourse(updatedCourse);
-            onUpdate(updatedCourse);
-            if ('target' in e && resourceInputRef.current) resourceInputRef.current.value = '';
-        } catch (error) {
-            alert('Failed to upload file(s).');
-        }
-    };
-
-    const handleRemoveAttachment = (fileId: number) => {
-        if(window.confirm("Remove this file from the course?")) {
-            const updatedAttachments = (localCourse.attachments || []).filter(id => id !== fileId);
-            const updatedCourse = { ...localCourse, attachments: updatedAttachments };
-            setLocalCourse(updatedCourse);
-            onUpdate(updatedCourse);
-        }
-    };
-
-    const handleAssignmentSubmit = (assignmentId: number) => {
-        const updatedAssignments = (localCourse.assignments || []).map(a => 
-            a.id === assignmentId ? { ...a, completed: true, grade: 'Pending' } : a
-        );
-        const updatedCourse = { ...localCourse, assignments: updatedAssignments };
-        setLocalCourse(updatedCourse);
-        onUpdate(updatedCourse);
-        
-        setNotifications(prev => [...prev, {
-            id: Date.now().toString(),
-            type: 'success',
-            title: 'Assignment Completed',
-            message: 'Marked as done.',
-            timestamp: Date.now(),
-            read: false
-        }]);
-    };
-    
-    const addAssignment = () => {
-        const title = prompt("Assignment Title:");
-        if(title) {
-            const newAssignment: Assignment = {
-                id: Date.now(),
-                title,
-                dueDate: new Date().toISOString().split('T')[0],
-                completed: false
-            };
-            const updatedAssignments = [...(localCourse.assignments || []), newAssignment];
-            const updatedCourse = { ...localCourse, assignments: updatedAssignments };
-            setLocalCourse(updatedCourse);
-            onUpdate(updatedCourse);
-        }
-    };
-
-    const viewSyllabus = async () => {
-        if (localCourse.syllabusFileId) {
-            const fileData = await getFile(localCourse.syllabusFileId);
-            if (fileData) setViewingFile(fileData);
-        }
-    };
-    
-    if (!localCourse) return <div className="p-4 text-gray-400">Loading course details...</div>;
-
-    return (
-        <div className="h-full flex flex-col bg-[var(--bg-offset)]">
-            {onBack && (
-                <div className="p-2 border-b border-white/10 md:hidden">
-                    <Button variant="glass" onClick={onBack} className="text-xs flex items-center gap-1">
-                        ← Back to Courses
-                    </Button>
-                </div>
-            )}
-            <div className="p-4 pb-0 flex-shrink-0">
-                 <Input value={localCourse.name} onChange={e => handleChange('name', e.target.value)} className="text-xl md:text-2xl font-bold !p-1 !border-0 mb-2 bg-transparent" />
-                 <div className="flex gap-4 text-sm text-gray-400 mb-4">
-                     <span>Credits: {localCourse.credits}</span>
-                     <span>Grade: {localCourse.grade || 'N/A'}</span>
-                 </div>
-                 <div className="flex border-b border-white/10 overflow-x-auto no-scrollbar">
-                    {['overview', 'assignments', 'resources', 'grades'].map(tab => (
-                        <button 
-                            key={tab}
-                            onClick={() => setActiveTab(tab as any)}
-                            className={`px-4 py-2 text-sm font-semibold capitalize whitespace-nowrap transition-colors ${activeTab === tab ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
-                 </div>
-            </div>
-            
-            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
-                {activeTab === 'overview' && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                             <Card title="Course Info">
-                                 <div className="space-y-2 p-2">
-                                     <Input value={localCourse.instructor || ''} onChange={e => handleChange('instructor', e.target.value)} placeholder="Instructor Name" />
-                                     <Input value={localCourse.room || ''} onChange={e => handleChange('room', e.target.value)} placeholder="Room / Location" />
-                                     <Input value={localCourse.schedule || ''} onChange={e => handleChange('schedule', e.target.value)} placeholder="Schedule (e.g. Mon 9am)" />
-                                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                                         <div>
-                                            <label className="text-[10px] text-gray-500 uppercase">Credits</label>
-                                            <Input type="number" value={localCourse.credits} onChange={e => handleChange('credits', parseFloat(e.target.value))} placeholder="Credits" />
-                                         </div>
-                                         <div>
-                                            <label className="text-[10px] text-gray-500 uppercase">Grade</label>
-                                            <Input value={localCourse.grade} onChange={e => handleChange('grade', e.target.value)} placeholder="Grade" />
-                                         </div>
-                                     </div>
-                                 </div>
-                             </Card>
-                             <Card title="Syllabus">
-                                <DropZone onDrop={handleSyllabusUpload} className="h-full">
-                                    <div className="h-full min-h-[100px] flex flex-col items-center justify-center p-4 border border-dashed border-white/10 rounded-lg hover:bg-white/5 transition-colors">
-                                        {localCourse.syllabusFileId ? (
-                                            <div className="text-center">
-                                                <div className="text-4xl mb-2">📄</div>
-                                                <p className="font-semibold text-[var(--grad-1)] mb-2 truncate max-w-[150px] mx-auto">{syllabusFileName || 'Syllabus'}</p>
-                                                <div className="flex gap-2 justify-center">
-                                                    <Button onClick={viewSyllabus} className="text-xs">View</Button>
-                                                    <Button variant="glass" onClick={() => syllabusInputRef.current?.click()} className="text-xs">Change</Button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="text-center text-gray-400">
-                                                <p className="text-sm mb-2">Drag & drop Syllabus</p>
-                                                <Button variant="glass" onClick={() => syllabusInputRef.current?.click()} className="text-xs">Upload PDF</Button>
-                                            </div>
-                                        )}
-                                        <input type="file" ref={syllabusInputRef} onChange={(e) => handleSyllabusUpload(e.target.files)} accept=".pdf, image/*" className="hidden" />
-                                    </div>
-                                </DropZone>
-                            </Card>
-                        </div>
-                        <Card title="Quick Notes">
-                             <textarea 
-                                value={localCourse.notes || ''} 
-                                onChange={e => handleChange('notes', e.target.value)}
-                                className="glass-textarea w-full h-32 resize-none"
-                                placeholder="Jot down course-specific notes here..."
-                            />
-                        </Card>
-                    </div>
-                )}
-                
-                {activeTab === 'assignments' && (
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-bold text-gray-300">Assignments</h4>
-                            <Button onClick={addAssignment} className="text-xs">+ Add Assignment</Button>
-                        </div>
-                        {(localCourse.assignments || []).length === 0 ? (
-                            <div className="text-center p-8 bg-white/5 rounded-lg border border-dashed border-white/10">
-                                <p className="text-gray-500 italic">No assignments yet.</p>
-                            </div>
-                        ) : (
-                            (localCourse.assignments || []).map(assign => (
-                                <div key={assign.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:bg-white/10 transition-colors">
-                                    <div>
-                                        <p className="font-semibold text-sm">{assign.title}</p>
-                                        <p className="text-xs text-gray-400">Due: {assign.dueDate} • Status: <span className={assign.completed ? "text-green-400" : "text-yellow-400"}>{assign.completed ? "Submitted" : "Pending"}</span></p>
-                                    </div>
-                                    <div>
-                                        {assign.completed ? (
-                                            <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded border border-green-500/30">Done</span>
-                                        ) : (
-                                            <Button onClick={() => handleAssignmentSubmit(assign.id)} variant="glass" className="text-xs">Mark Done</Button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'resources' && (
-                     <div className="h-full flex flex-col">
-                         <div className="flex justify-between items-center mb-4">
-                             <div>
-                                 <h4 className="font-bold text-gray-300">Course Materials</h4>
-                                 <p className="text-xs text-gray-500">Readings, slides, and other files.</p>
-                             </div>
-                             <div className="flex gap-2">
-                                 <Button onClick={() => resourceInputRef.current?.click()} className="text-xs flex items-center gap-1">
-                                     <span>+</span> Upload
-                                 </Button>
-                                 <input type="file" ref={resourceInputRef} multiple className="hidden" onChange={handleResourceUpload} />
-                             </div>
-                         </div>
-                         
-                         <DropZone onDrop={handleResourceUpload} className="flex-grow">
-                             {(localCourse.attachments || []).length === 0 ? (
-                                 <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-center p-8 bg-white/5 rounded-lg border-2 border-dashed border-white/10 text-gray-400">
-                                     <div className="text-4xl mb-2 opacity-50">📂</div>
-                                     <p className="text-sm font-medium">No files attached</p>
-                                     <p className="text-xs mt-1 opacity-70">Drag & drop files here or click Upload</p>
-                                 </div>
-                             ) : (
-                                 <div className="grid grid-cols-1 gap-2">
-                                     {(localCourse.attachments || []).map(fileId => (
-                                         <AttachmentItem 
-                                             key={fileId} 
-                                             fileId={fileId} 
-                                             onRemove={() => handleRemoveAttachment(fileId)} 
-                                         />
-                                     ))}
-                                 </div>
-                             )}
-                         </DropZone>
-                     </div>
-                )}
-
-                {activeTab === 'grades' && (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between bg-black/20 p-4 rounded-lg border border-white/5">
-                             <span>Current Grade</span>
-                             <span className="text-2xl font-bold text-[var(--grad-1)]">{localCourse.grade || '-'}</span>
-                        </div>
-                        <p className="text-sm text-gray-400">Grade breakdown available in analytics.</p>
-                    </div>
-                )}
-            </div>
-            
-             <div className="p-4 border-t border-white/10 flex justify-end gap-2 flex-shrink-0">
-                <Button variant="glass" onClick={() => setLocalCourse(course)}>Reset</Button>
-                <Button onClick={() => onUpdate(localCourse)}>Save Changes</Button>
-            </div>
-        </div>
-    );
-};
-
 
 // Main component
 const AcademicsManager: React.FC = () => {
@@ -454,12 +59,6 @@ const AcademicsManager: React.FC = () => {
     const [selectedCourseKey, setSelectedCourseKey] = useState<string | null>(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const isMobile = useMobile();
-    
-    // Modal States
-    const [showSemesterModal, setShowSemesterModal] = useState(false);
-    const [editingSemester, setEditingSemester] = useState<Semester | null>(null); // If null but showSemesterModal is true, it's Add mode
-    const [addingCourseSemIndex, setAddingCourseSemIndex] = useState<number | null>(null);
 
     const handleSelectCourse = (semIndex: number, courseIndex: number) => {
         setSelectedCourseKey(`${semIndex}-${courseIndex}`);
@@ -468,7 +67,7 @@ const AcademicsManager: React.FC = () => {
     const handleUpdateCourse = (semIndex: number, courseIndex: number, updatedCourse: Course) => {
         setSemesters(prev => prev.map((s, si) =>
             si === semIndex
-                ? { ...s, courses: (s.courses || []).map((c, ci) => ci === courseIndex ? updatedCourse : c) }
+                ? { ...s, courses: s.courses.map((c, ci) => ci === courseIndex ? updatedCourse : c) }
                 : s
         ));
     };
@@ -489,153 +88,674 @@ const AcademicsManager: React.FC = () => {
         return () => document.removeEventListener('fullscreenchange', handler);
     }, []);
 
-    const { selectedCourse, selectedSemIndex, selectedCourseIndex } = useMemo(() => {
-        if (!selectedCourseKey) return { selectedCourse: null, selectedSemIndex: -1, selectedCourseIndex: -1 };
+    const selectedCourseIndices = useMemo(() => {
+        if (!selectedCourseKey) return null;
         const [semIndex, courseIndex] = selectedCourseKey.split('-').map(Number);
-        const semester = semesters[semIndex];
-        const course = semester?.courses?.[courseIndex];
-        return { selectedCourse: course, selectedSemIndex: semIndex, selectedCourseIndex: courseIndex };
-    }, [selectedCourseKey, semesters]);
+        return { semIndex, courseIndex };
+    }, [selectedCourseKey]);
 
-    const handleOpenAddSemester = () => {
-        setEditingSemester(null);
-        setShowSemesterModal(true);
-    };
-
-    const handleOpenEditSemester = (semester: Semester) => {
-        setEditingSemester(semester);
-        setShowSemesterModal(true);
-    };
-
-    const handleSaveSemester = (semesterData: Semester) => {
-        if (editingSemester) {
-            // Edit Mode
-            setSemesters(prev => prev.map(s => s.name === editingSemester.name ? { ...s, ...semesterData } : s));
-        } else {
-            // Add Mode
-            if (semesters.some(s => s.name === semesterData.name)) {
-                alert("A semester with this name already exists.");
-                return;
-            }
-            setSemesters(prev => [...prev, semesterData]);
-        }
-        setShowSemesterModal(false);
-        setEditingSemester(null);
-    };
-
-    const handleSaveNewCourse = (course: Course) => {
-        if (addingCourseSemIndex !== null) {
-            setSemesters(prev => prev.map((s, si) => si === addingCourseSemIndex ? { ...s, courses: [...(s.courses || []), course] } : s));
-            setAddingCourseSemIndex(null);
-        }
-    };
-
-    const handleDeleteSemester = (semName: string) => {
-        if(window.confirm(`Delete ${semName} and all its courses?`)) {
-             setSemesters(prev => prev.filter(s => s.name !== semName));
-             if(selectedCourseKey?.startsWith(`${semesters.findIndex(s => s.name === semName)}-`)) {
-                 setSelectedCourseKey(null);
-             }
-        }
-    };
-
-    // Mobile view logic: If a course is selected, hide the list on mobile.
-    const showList = !isMobile || !selectedCourse;
-    const showDetail = selectedCourse;
+    const selectedCourseData = useMemo(() => {
+        if (!selectedCourseIndices) return null;
+        const { semIndex, courseIndex } = selectedCourseIndices;
+        return semesters[semIndex]?.courses[courseIndex] || null;
+    }, [selectedCourseIndices, semesters]);
 
     return (
-        <div ref={containerRef} className={`flex flex-col bg-transparent rounded-xl ${isFullScreen ? 'fixed inset-0 z-50 bg-[var(--bg)] p-4' : 'h-full'}`}>
-            {showSemesterModal && (
-                <SemesterModal 
-                    semester={editingSemester || undefined}
-                    onClose={() => setShowSemesterModal(false)}
-                    onSave={handleSaveSemester}
+      <div ref={containerRef} className={`bg-gradient-to-b from-[rgba(255,255,255,0.01)] to-[rgba(255,255,255,0.02)] p-4 rounded-xl ${isFullScreen ? 'h-screen w-screen overflow-y-auto' : ''}`}>
+            {selectedCourseData && selectedCourseIndices ? (
+                <CourseDetailView
+                    course={selectedCourseData}
+                    semIndex={selectedCourseIndices.semIndex}
+                    courseIndex={selectedCourseIndices.courseIndex}
+                    onUpdateCourse={handleUpdateCourse}
+                    onBack={() => setSelectedCourseKey(null)}
+                    isFullScreen={isFullScreen}
+                    toggleFullScreen={toggleFullScreen}
                 />
-            )}
-            {addingCourseSemIndex !== null && (
-                <CourseAddModal 
-                    onSave={handleSaveNewCourse}
-                    onClose={() => setAddingCourseSemIndex(null)}
-                />
-            )}
-
-            {showList && (
-                <div className="flex-shrink-0 flex justify-between items-center mb-4 px-4 pt-4">
-                    <h2 className="text-xl font-bold hidden md:block">Academics Manager</h2>
-                    <div className="flex gap-2 w-full md:w-auto justify-end">
-                        <Button variant="glass" onClick={handleOpenAddSemester} className="text-xs md:text-sm flex-1 md:flex-none">+ New Semester</Button>
-                        <Button variant="glass" onClick={() => downloadJSON(semesters, 'academics.json')} className="text-xs md:text-sm hidden sm:block">Export</Button>
-                        <Button variant="glass" onClick={toggleFullScreen} className="text-xs md:text-sm">{isFullScreen ? 'Exit Full' : 'Full Screen'}</Button>
-                    </div>
-                </div>
-            )}
-            
-            {semesters.length === 0 ? (
-                 <div className="flex-grow flex flex-col items-center justify-center text-center p-8 opacity-60">
-                     <svg className="w-20 h-20 mb-4 text-[var(--grad-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                     <h3 className="text-2xl font-bold mb-2">Start your academic journey</h3>
-                     <p className="mb-6 max-w-md">Create a semester to begin tracking your courses, grades, and assignments.</p>
-                     <Button onClick={handleOpenAddSemester} className="px-8 py-3 text-lg">Create First Semester</Button>
-                 </div>
             ) : (
-                <div className="flex-grow flex overflow-hidden relative">
-                    {/* Sidebar List */}
-                    <div className={`${showList ? 'flex' : 'hidden'} w-full md:w-1/3 flex-col flex-shrink-0 md:border-r border-[var(--border-color)] p-2 overflow-y-auto custom-scrollbar bg-[var(--bg)] md:bg-transparent z-10`}>
-                        {semesters.map((semester, semIndex) => (
-                            <div key={semester.name} className="mb-4 bg-white/5 rounded-lg overflow-hidden border border-white/5">
-                                <div className="flex justify-between items-center p-3 bg-white/5 cursor-default">
-                                    <div className="min-w-0">
-                                        <h4 className="font-semibold text-sm md:text-base truncate">{semester.name}</h4>
-                                        {(semester.department || semester.year) && (
-                                            <p className="text-[10px] text-gray-400 truncate">{semester.department} {semester.year}</p>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-1 flex-shrink-0">
-                                        <button onClick={() => handleOpenEditSemester(semester)} className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors" title="Edit Semester">
-                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                        </button>
-                                        <button onClick={() => handleDeleteSemester(semester.name)} className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-red-400 transition-colors" title="Delete Semester">
-                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="p-2 space-y-1">
-                                    {(semester.courses || []).length === 0 && <p className="text-xs text-gray-500 text-center py-2">No courses.</p>}
-                                    {(semester.courses || []).map((course, courseIndex) => (
-                                        <button 
-                                            key={`${course.name}-${courseIndex}`} 
-                                            onClick={() => handleSelectCourse(semIndex, courseIndex)}
-                                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all flex justify-between items-center ${selectedCourseKey === `${semIndex}-${courseIndex}` ? 'bg-[var(--grad-1)] text-white font-medium shadow-md' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
-                                        >
-                                            <span className="truncate">{course.name}</span>
-                                            {course.grade && <span className="text-[10px] bg-black/20 px-1.5 rounded ml-2">{course.grade}</span>}
-                                        </button>
-                                    ))}
-                                    <Button variant="glass" className="w-full text-xs mt-2 border-dashed border-white/10" onClick={() => setAddingCourseSemIndex(semIndex)}>+ Add Course</Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    
-                    {/* Detail Panel */}
-                    <div className={`${showDetail ? 'flex' : 'hidden md:flex'} flex-col flex-grow w-full md:w-2/3 min-w-0 bg-black/10 border-l border-white/5 absolute md:relative inset-0 z-20 md:z-auto`}>
-                        {selectedCourse ? (
-                            <CourseDetailPanel 
-                                key={selectedCourseKey} // Force re-render on course switch to reset state
-                                course={selectedCourse}
-                                onUpdate={(updated) => handleUpdateCourse(selectedSemIndex, selectedCourseIndex, updated)}
-                                onBack={() => setSelectedCourseKey(null)}
-                            />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4 text-center">
-                                <p className="mb-2 text-lg">Select a course to view details</p>
-                                <p className="text-xs max-w-xs">Manage assignments, view syllabus, upload resources, and track grades for your selected course.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <SemesterListView onSelectCourse={handleSelectCourse} isFullScreen={isFullScreen} toggleFullScreen={toggleFullScreen} />
             )}
+      </div>
+    );
+};
+
+
+// List view of all semesters and courses
+const SemesterListView: React.FC<{ onSelectCourse: (s: number, c: number) => void; isFullScreen: boolean; toggleFullScreen: () => void; }> = ({ onSelectCourse, isFullScreen, toggleFullScreen }) => {
+    const { semesters, setSemesters } = useAppContext();
+    const [newSemName, setNewSemName] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const importFileRef = useRef<HTMLInputElement>(null);
+    const [editingSemesterIndex, setEditingSemesterIndex] = useState<number | null>(null);
+
+    const filteredSemesters = useMemo(() => {
+        if (!searchTerm.trim()) return semesters;
+        const lowerCaseSearch = searchTerm.toLowerCase();
+        return semesters
+            .map(semester => ({
+                ...semester,
+                courses: semester.courses.filter(course =>
+                    course.name.toLowerCase().includes(lowerCaseSearch) ||
+                    course.code?.toLowerCase().includes(lowerCaseSearch)
+                )
+            }))
+            .filter(semester => semester.courses.length > 0);
+    }, [semesters, searchTerm]);
+
+
+    const addSemester = () => {
+        if (!newSemName.trim()) return;
+        setSemesters(prev => [{ name: newSemName, courses: [], department: '', year: '' }, ...prev]);
+        setNewSemName('');
+    };
+    
+    const addCourse = async (semIndex: number, courseData: Omit<Course, 'attachments' | 'syllabusFileId' | 'attendance' | 'assignments' | 'exams' | 'resources' | 'modules' | 'quizzes'>, syllabusFile: File | null) => {
+        let syllabusFileId: number | undefined = undefined;
+        if (syllabusFile) {
+            try {
+                syllabusFileId = await addFile(syllabusFile);
+            } catch (e) {
+                alert('Failed to save syllabus file.');
+                console.error(e);
+                return;
+            }
+        }
+        
+        const newCourse: Course = {
+            ...courseData,
+            credits: Number(courseData.credits) || 0,
+            syllabusFileId,
+            attachments: [],
+            attendance: [],
+            assignments: [],
+            exams: [],
+            resources: [],
+            modules: [],
+            quizzes: [],
+        };
+        
+        setSemesters(prev => prev.map((s, i) => i === semIndex ? { ...s, courses: [...s.courses, newCourse] } : s));
+    };
+
+    const deleteSemester = (index: number) => {
+        if (window.confirm('Delete semester? This will also delete all its courses.')) {
+            setSemesters(prev => prev.filter((_, i) => i !== index));
+        }
+    };
+
+    const handleSaveSemester = (index: number, updatedData: Partial<Semester>) => {
+        setSemesters(prev => prev.map((s, i) => i === index ? { ...s, ...updatedData } : s));
+        setEditingSemesterIndex(null);
+    };
+    
+    const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const result = JSON.parse(e.target?.result as string);
+                if (Array.isArray(result)) {
+                    setSemesters(result); alert('Imported semesters');
+                } else { alert('Invalid JSON format'); }
+            } catch (error) { alert('Invalid JSON file'); }
+        };
+        reader.readAsText(file);
+    };
+
+    return (
+        <>
+         <div className="flex justify-between items-center">
+            <CardHeader title="Academics System" subtitle="Course & GPA Manager" />
+            <Button variant="outline" onClick={toggleFullScreen}>{isFullScreen ? 'Exit Full-Screen' : 'Full-Screen'}</Button>
+        </div>
+        <div className="flex gap-2 mb-2">
+            <Input value={newSemName} onChange={e => setNewSemName(e.target.value)} placeholder="Semester name (e.g., Fall 2025)" />
+            <Button onClick={addSemester}>Add Semester</Button>
+        </div>
+        <div className="mb-4">
+             <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search courses by name or code..." />
+        </div>
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+            {filteredSemesters.length === 0 ? <p className="text-[#9fb3cf]">No semesters found.</p> :
+                filteredSemesters.map((sem, si) => (
+                    <Card key={si} className="bg-black/20">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="m-0 font-semibold text-lg">{sem.name}</h4>
+                            <div className="flex gap-2">
+                                <Button variant="outline" className="text-xs !px-2 !py-1" onClick={() => setEditingSemesterIndex(si)}>Edit</Button>
+                                <Button variant="outline" className="text-xs !px-2 !py-1" onClick={() => deleteSemester(si)}>Delete Sem</Button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                           {sem.courses.map((course, ci) => (
+                               <div key={ci} className="flex justify-between items-center p-2 rounded-md bg-white/5 hover:bg-white/10" onClick={() => onSelectCourse(semesters.findIndex(s => s.name === sem.name), ci)}>
+                                   <p className="cursor-pointer">{course.code && `[${course.code}]`} {course.name}</p>
+                                   <Button variant="outline" className="text-xs">Manage</Button>
+                               </div>
+                           ))}
+                           <AddCourseForm semIndex={semesters.findIndex(s => s.name === sem.name)} onAddCourse={addCourse} />
+                        </div>
+                    </Card>
+                ))
+            }
+        </div>
+        <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
+            <Button variant="outline" onClick={() => downloadJSON(semesters, 'academics-export.json')}>Export All</Button>
+            <Button variant="outline" onClick={() => importFileRef.current?.click()}>Import All</Button>
+            <input type="file" ref={importFileRef} onChange={handleImport} className="hidden" accept="application/json" />
+        </div>
+        {editingSemesterIndex !== null && (
+            <SemesterEditModal
+                semester={semesters[editingSemesterIndex]}
+                onSave={(data) => handleSaveSemester(editingSemesterIndex, data)}
+                onClose={() => setEditingSemesterIndex(null)}
+            />
+        )}
+        </>
+    );
+};
+
+// Form to add a new course
+const AddCourseForm: React.FC<{ semIndex: number; onAddCourse: (si: number, c: Omit<Course, 'attachments' | 'syllabusFileId' | 'attendance' | 'assignments' | 'exams' | 'resources' | 'modules' | 'quizzes'>, f: File | null) => void }> = ({ semIndex, onAddCourse }) => {
+    const [name, setName] = useState('');
+    const [code, setCode] = useState('');
+    const [credits, setCredits] = useState('');
+    const [instructor, setInstructor] = useState('');
+    const [schedule, setSchedule] = useState('');
+    const [room, setRoom] = useState('');
+    const [syllabusFile, setSyllabusFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSubmit = () => {
+        if (!name.trim()) return alert('Course name is required.');
+        onAddCourse(semIndex, { name, code, credits: Number(credits) || 0, grade: '', status: 'active', instructor, schedule, room }, syllabusFile);
+        setName(''); setCode(''); setCredits(''); setSyllabusFile(null); setInstructor(''); setSchedule(''); setRoom('');
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    return (
+        <details className="mt-2">
+            <summary className="cursor-pointer text-sm font-semibold p-2 bg-black/20 rounded-lg">Add New Course</summary>
+            <div className="p-2 space-y-2 mt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="Course name"/>
+                    <Input value={code} onChange={e => setCode(e.target.value)} placeholder="Course Code"/>
+                    <Input value={credits} onChange={e => setCredits(e.target.value)} placeholder="Credits" type="number"/>
+                    <Input value={instructor} onChange={e => setInstructor(e.target.value)} placeholder="Instructor"/>
+                    <Input value={schedule} onChange={e => setSchedule(e.target.value)} placeholder="Schedule"/>
+                    <Input value={room} onChange={e => setRoom(e.target.value)} placeholder="Room"/>
+                </div>
+                 <div className="text-sm">
+                    <label>Syllabus (PDF): </label>
+                    <input type="file" accept=".pdf" ref={fileInputRef} onChange={e => setSyllabusFile(e.target.files?.[0] || null)} className="text-xs"/>
+                </div>
+                <Button onClick={handleSubmit} className="text-sm">Add Course</Button>
+            </div>
+        </details>
+    );
+};
+
+type CourseTab = 'Overview' | 'Modules' | 'Quizzes' | 'Attendance' | 'Assignments' | 'Exams' | 'Resources' | 'Files';
+
+// Detailed view for a single course with tabs
+const CourseDetailView: React.FC<{ course: Course; semIndex: number; courseIndex: number; onUpdateCourse: (s: number, c: number, u: Course) => void; onBack: () => void; isFullScreen: boolean; toggleFullScreen: () => void; }> = ({ course, semIndex, courseIndex, onUpdateCourse, onBack, isFullScreen, toggleFullScreen }) => {
+    const [activeTab, setActiveTab] = useState<CourseTab>('Overview');
+    
+    const updateField = (field: keyof Course, value: any) => {
+        onUpdateCourse(semIndex, courseIndex, { ...course, [field]: value });
+    };
+
+    const TABS: CourseTab[] = ['Overview', 'Modules', 'Quizzes', 'Attendance', 'Assignments', 'Exams', 'Resources', 'Files'];
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <Button variant="outline" onClick={onBack} className="mb-2">← Back to Semesters</Button>
+                    <h2 className="text-2xl font-bold">{course.name}</h2>
+                    <p className="text-gray-400">{course.code}</p>
+                </div>
+                <Button variant="outline" onClick={toggleFullScreen}>{isFullScreen ? 'Exit Full-Screen' : 'Full-Screen'}</Button>
+            </div>
+            <div className="flex border-b border-white/10 mb-4 overflow-x-auto">
+                {TABS.map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-sm font-semibold transition-colors flex-shrink-0 ${activeTab === tab ? 'text-[#5aa1ff] border-b-2 border-[#5aa1ff]' : 'text-gray-400 hover:text-white'}`}>
+                        {tab}
+                    </button>
+                ))}
+            </div>
+            <div className="flex-grow overflow-y-auto">
+                {activeTab === 'Overview' && <OverviewTab course={course} updateField={updateField} />}
+                {activeTab === 'Modules' && <ModulesTab course={course} updateField={updateField} />}
+                {activeTab === 'Quizzes' && <QuizzesTab course={course} updateField={updateField} />}
+                {activeTab === 'Attendance' && <AttendanceTab course={course} updateField={updateField} />}
+                {activeTab === 'Assignments' && <AssignmentsTab course={course} updateField={updateField} />}
+                {activeTab === 'Exams' && <ExamsTab course={course} updateField={updateField} />}
+                {activeTab === 'Resources' && <ResourcesTab course={course} updateField={updateField} />}
+                {activeTab === 'Files' && <FilesTab course={course} updateField={updateField} />}
+            </div>
         </div>
     );
 };
+
+
+const OverviewTab: React.FC<{course: Course, updateField: (f: keyof Course, v: any) => void}> = ({course, updateField}) => {
+    const [syllabusUrl, setSyllabusUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        let objectUrl: string | null = null;
+        if (course.syllabusFileId) {
+            getFile(course.syllabusFileId).then(fileData => {
+                if (fileData && fileData.data.type === 'application/pdf') {
+                    objectUrl = URL.createObjectURL(fileData.data);
+                    setSyllabusUrl(objectUrl);
+                }
+            });
+        }
+        return () => { if(objectUrl) URL.revokeObjectURL(objectUrl); }
+    }, [course.syllabusFileId]);
+
+    const attendanceStats = useMemo(() => {
+        const total = course.attendance.length;
+        if (total === 0) return { present: 0, total: 0, percentage: 100 };
+        const present = course.attendance.filter(a => a.status === 'present').length;
+        return { present, total, percentage: (present / total) * 100 };
+    }, [course.attendance]);
+
+    const handleSyllabusUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && file.type === 'application/pdf') {
+            try {
+                const fileId = await addFile(file);
+                updateField('syllabusFileId', fileId);
+            } catch (error) { alert("Failed to upload syllabus."); }
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2 space-y-4">
+                 <Card>
+                    <h4 className="font-bold mb-2">Goals & Reflections</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="text-sm font-semibold text-gray-400">Goal Grade</label>
+                            <Input 
+                                value={course.goalGrade || ''}
+                                onChange={e => updateField('goalGrade', e.target.value)}
+                                placeholder="e.g., A+"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-semibold text-gray-400">Notes & Reflections</label>
+                            <textarea
+                                value={course.notes || ''}
+                                onChange={e => updateField('notes', e.target.value)}
+                                rows={5}
+                                className="bg-transparent border border-[var(--input-border-color)] text-[var(--text-color-dim)] p-2 rounded-lg w-full box-border mt-1"
+                                placeholder="What are your strategies for this course? What went well?"
+                            />
+                        </div>
+                    </div>
+                </Card>
+                <Card>
+                    <h4 className="font-bold mb-2">Syllabus</h4>
+                    {syllabusUrl ? (
+                         <embed src={syllabusUrl} type="application/pdf" className="w-full h-96 rounded" />
+                    ) : (
+                        <div className="text-center py-8">
+                            <p className="mb-2">No syllabus uploaded.</p>
+                            <input type="file" accept=".pdf" onChange={handleSyllabusUpload} className="text-sm" />
+                        </div>
+                    )}
+                </Card>
+            </div>
+            <div className="space-y-4">
+                <Card>
+                    <h4 className="font-bold mb-2">Attendance</h4>
+                    <div className="text-center">
+                        <p className="text-4xl font-bold">{attendanceStats.percentage.toFixed(0)}%</p>
+                        <p className="text-sm text-gray-400">({attendanceStats.present} / {attendanceStats.total} classes)</p>
+                    </div>
+                </Card>
+                <Card>
+                    <h4 className="font-bold mb-2">Course Details</h4>
+                    <div className="space-y-3 text-sm">
+                        <div>
+                            <label className="font-semibold text-gray-400">Instructor</label>
+                            <Input 
+                                value={course.instructor || ''}
+                                onChange={e => updateField('instructor', e.target.value)}
+                                placeholder="e.g., Prof. Smith"
+                                className="mt-1 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="font-semibold text-gray-400">Schedule</label>
+                            <Input 
+                                value={course.schedule || ''}
+                                onChange={e => updateField('schedule', e.target.value)}
+                                placeholder="e.g., MWF 10:00 - 11:00"
+                                className="mt-1 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="font-semibold text-gray-400">Room</label>
+                            <Input 
+                                value={course.room || ''}
+                                onChange={e => updateField('room', e.target.value)}
+                                placeholder="e.g., Building A, Room 101"
+                                className="mt-1 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="font-semibold text-gray-400">Credits</label>
+                            <Input 
+                                type="number"
+                                value={course.credits || ''}
+                                onChange={e => updateField('credits', Number(e.target.value))}
+                                placeholder="e.g., 3"
+                                className="mt-1 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="font-semibold text-gray-400">Status</label>
+                            <select 
+                                value={course.status || 'active'} 
+                                onChange={e => updateField('status', e.target.value as 'active' | 'completed')}
+                                className="bg-transparent border border-[var(--input-border-color)] text-[var(--text-color-dim)] p-2 rounded-lg w-full box-border mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                            >
+                                <option value="active" className="bg-[var(--option-bg-color)]">Active</option>
+                                <option value="completed" className="bg-[var(--option-bg-color)]">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        </div>
+    );
+};
+
+const ModulesTab: React.FC<{course: Course, updateField: (f: 'modules', v: Module[]) => void}> = ({course, updateField}) => {
+    const [title, setTitle] = useState('');
+
+    const handleAdd = () => {
+        if (!title.trim()) return;
+        const newModule: Module = { id: Date.now(), title, completed: false };
+        updateField('modules', [...(course.modules || []), newModule]);
+        setTitle('');
+    };
+
+    const handleDelete = (id: number) => {
+        updateField('modules', (course.modules || []).filter(m => m.id !== id));
+    };
+
+    const handleToggle = (id: number) => {
+        updateField('modules', (course.modules || []).map(m => m.id === id ? { ...m, completed: !m.completed } : m));
+    };
+    
+    return (
+        <div className="max-w-md">
+            <div className="flex gap-2 mb-4 p-2 bg-black/20 rounded-lg">
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="New module title..." />
+                <Button onClick={handleAdd}>Add</Button>
+            </div>
+            <div className="space-y-2">
+                {(course.modules || []).map(mod => (
+                    <div key={mod.id} className="flex justify-between items-center p-2 rounded bg-white/5">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={mod.completed} onChange={() => handleToggle(mod.id)} className="form-checkbox h-4 w-4 rounded bg-transparent border-gray-600 text-[var(--accent-color)] focus:ring-0" />
+                            <span className={mod.completed ? 'line-through text-gray-500' : ''}>{mod.title}</span>
+                        </label>
+                        <Button variant="outline" className="text-xs !p-1" onClick={() => handleDelete(mod.id)}>Delete</Button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const QuizzesTab: React.FC<{course: Course, updateField: (f: 'quizzes', v: Quiz[]) => void}> = ({course, updateField}) => {
+    const [title, setTitle] = useState('');
+
+    const handleAdd = () => {
+        if (!title.trim()) return;
+        const newQuiz: Quiz = { id: Date.now(), title, score: null, status: 'pending' };
+        updateField('quizzes', [...(course.quizzes || []), newQuiz]);
+        setTitle('');
+    };
+
+    const handleDelete = (id: number) => {
+        updateField('quizzes', (course.quizzes || []).filter(q => q.id !== id));
+    };
+
+    const handleUpdate = (id: number, updates: Partial<Quiz>) => {
+        updateField('quizzes', (course.quizzes || []).map(q => q.id === id ? { ...q, ...updates } : q));
+    };
+    
+    return (
+        <div className="max-w-lg">
+            <div className="flex gap-2 mb-4 p-2 bg-black/20 rounded-lg">
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="New quiz title..." />
+                <Button onClick={handleAdd}>Add</Button>
+            </div>
+            <div className="space-y-2">
+                {(course.quizzes || []).map(quiz => (
+                    <div key={quiz.id} className="grid grid-cols-4 items-center gap-2 p-2 rounded bg-white/5">
+                        <span className="col-span-2">{quiz.title}</span>
+                        <Input type="number" placeholder="Score %" value={quiz.score ?? ''} onChange={e => handleUpdate(quiz.id, { score: e.target.value ? Number(e.target.value) : null })} />
+                        <select value={quiz.status} onChange={e => handleUpdate(quiz.id, { status: e.target.value as Quiz['status'] })} className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-lg text-sm">
+                            <option value="pending" className="bg-[#0b1626]">Pending</option>
+                            <option value="passed" className="bg-[#0b1626]">Passed</option>
+                            <option value="failed" className="bg-[#0b1626]">Failed</option>
+                        </select>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const AttendanceTab: React.FC<{course: Course, updateField: (f: 'attendance', v: AttendanceRecord[]) => void}> = ({course, updateField}) => {
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [status, setStatus] = useState<AttendanceRecord['status']>('present');
+
+    const handleAdd = () => {
+        if (course.attendance.some(a => a.date === date)) return alert('Attendance for this date already recorded.');
+        const newRecord: AttendanceRecord = { date, status };
+        updateField('attendance', [...course.attendance, newRecord].sort((a,b) => b.date.localeCompare(a.date)));
+    };
+
+    const handleDelete = (dateToDelete: string) => {
+        updateField('attendance', course.attendance.filter(a => a.date !== dateToDelete));
+    };
+    
+    return (
+        <div className="max-w-md">
+            <div className="flex gap-2 mb-4 p-2 bg-black/20 rounded-lg">
+                <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                <select value={status} onChange={e => setStatus(e.target.value as any)} className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-lg w-full box-border focus:outline-none focus:ring-2 focus:ring-[#5aa1ff]">
+                    <option value="present" className="bg-[#0b1626]">Present</option>
+                    <option value="absent" className="bg-[#0b1626]">Absent</option>
+                    <option value="late" className="bg-[#0b1626]">Late</option>
+                </select>
+                <Button onClick={handleAdd}>Log</Button>
+            </div>
+            <div className="space-y-2">
+                {course.attendance.map(rec => (
+                    <div key={rec.date} className="flex justify-between items-center p-2 rounded bg-white/5">
+                        <p>{rec.date}</p>
+                        <p className={`capitalize font-semibold ${rec.status === 'present' ? 'text-green-400' : rec.status === 'absent' ? 'text-red-400' : 'text-yellow-400'}`}>{rec.status}</p>
+                        <Button variant="outline" className="text-xs !p-1" onClick={() => handleDelete(rec.date)}>Delete</Button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// Generic CRUD component for items like Assignments, Exams, Resources
+const CrudManager: React.FC<{
+    items: (Assignment | Exam | Resource)[];
+    onUpdate: (items: any[]) => void;
+    itemSchema: { field: string, label: string, type: string }[];
+    itemName: string;
+}> = ({ items, onUpdate, itemSchema, itemName }) => {
+    const [formState, setFormState] = useState<any>({});
+    const [editingId, setEditingId] = useState<number | null>(null);
+
+    const handleSave = () => {
+        if (editingId) {
+            onUpdate(items.map(item => item.id === editingId ? { ...item, ...formState } : item));
+        } else {
+            onUpdate([{ ...formState, id: Date.now() }, ...items]);
+        }
+        setFormState({});
+        setEditingId(null);
+    };
+    
+    const handleEdit = (item: any) => {
+        setEditingId(item.id);
+        setFormState(item);
+    };
+    
+    const handleDelete = (id: number) => {
+        onUpdate(items.filter(item => item.id !== id));
+    };
+
+    return (
+        <div>
+            <details className="mb-4">
+                <summary className="cursor-pointer font-semibold p-2 bg-black/20 rounded-lg">
+                    {editingId ? `Editing ${itemName}`: `Add New ${itemName}`}
+                </summary>
+                 <div className="p-2 space-y-2 mt-1 border border-white/10 rounded-lg">
+                     {itemSchema.map(s => (
+                         <div key={s.field}>
+                             <label className="text-sm text-gray-400">{s.label}</label>
+                             <Input 
+                                 type={s.type}
+                                 value={formState[s.field] || ''}
+                                 onChange={e => setFormState({...formState, [s.field]: e.target.value})}
+                                 className="mt-1"
+                             />
+                         </div>
+                     ))}
+                     <div className="flex gap-2">
+                        <Button onClick={handleSave}>{editingId ? 'Save Changes' : `Add ${itemName}`}</Button>
+                        {editingId && <Button variant="outline" onClick={() => { setEditingId(null); setFormState({}); }}>Cancel</Button>}
+                     </div>
+                 </div>
+            </details>
+            <div className="space-y-2">
+                {items.map(item => (
+                    <div key={item.id} className="p-2 bg-white/5 rounded-lg">
+                        <div className="flex justify-between items-start">
+                           <p className="font-semibold">{item.title}</p>
+                           <div>
+                                <Button variant="outline" className="text-xs !p-1" onClick={() => handleEdit(item)}>Edit</Button>
+                                <Button variant="outline" className="text-xs !p-1 ml-1" onClick={() => handleDelete(item.id)}>Del</Button>
+                           </div>
+                        </div>
+                        {Object.entries(item).filter(([k]) => k !== 'title' && k !== 'id').map(([k,v]) => (
+                            <p key={k} className="text-sm text-gray-300 capitalize">{k}: {String(v)}</p>
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+const AssignmentsTab: React.FC<{course: Course, updateField: (f: 'assignments', v: Assignment[]) => void}> = ({course, updateField}) => (
+    <CrudManager 
+        items={course.assignments}
+        onUpdate={(newItems) => updateField('assignments', newItems)}
+        itemName="Assignment"
+        itemSchema={[
+            { field: 'title', label: 'Title', type: 'text' },
+            { field: 'dueDate', label: 'Due Date', type: 'date' },
+            { field: 'grade', label: 'Grade', type: 'text' },
+            { field: 'totalPoints', label: 'Total Points', type: 'number' },
+        ]}
+    />
+);
+
+const ExamsTab: React.FC<{course: Course, updateField: (f: 'exams', v: Exam[]) => void}> = ({course, updateField}) => (
+    <CrudManager 
+        items={course.exams}
+        onUpdate={(newItems) => updateField('exams', newItems)}
+        itemName="Exam"
+        itemSchema={[
+            { field: 'title', label: 'Title', type: 'text' },
+            { field: 'date', label: 'Date', type: 'date' },
+            { field: 'time', label: 'Time', type: 'time' },
+            { field: 'grade', label: 'Grade', type: 'text' },
+            { field: 'totalPoints', label: 'Total Points', type: 'number' },
+        ]}
+    />
+);
+
+const ResourcesTab: React.FC<{course: Course, updateField: (f: 'resources', v: Resource[]) => void}> = ({course, updateField}) => (
+     <CrudManager 
+        items={course.resources}
+        onUpdate={(newItems) => updateField('resources', newItems)}
+        itemName="Resource"
+        itemSchema={[
+            { field: 'title', label: 'Title', type: 'text' },
+            { field: 'url', label: 'URL', type: 'url' },
+            { field: 'description', label: 'Description', type: 'text' },
+        ]}
+    />
+);
+
+
+const FilesTab: React.FC<{course: Course, updateField: (f: 'attachments', v: number[]) => void}> = ({course, updateField}) => {
+    const { setViewingFile } = useAppContext();
+    const [allFiles, setAllFiles] = useState<StoredFile[]>([]);
+    const attachFileRef = useRef<HTMLInputElement>(null);
+
+    const loadFiles = useCallback(async () => {
+        setAllFiles(await getFiles());
+    }, []);
+
+    useEffect(() => { loadFiles() }, [loadFiles]);
+    
+    const courseFiles = useMemo(() => {
+        return allFiles.filter(f => course.attachments?.includes(f.id));
+    }, [allFiles, course.attachments]);
+
+    const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const newId = await addFile(file);
+            updateField('attachments', [...(course.attachments || []), newId]);
+            loadFiles();
+        }
+    };
+    
+    const handleView = async (id: number) => {
+        const fileData = await getFile(id);
+        if (fileData) setViewingFile(fileData);
+    };
+
+    return (
+        <div>
+            <Button onClick={() => attachFileRef.current?.click()}>Attach New File</Button>
+            <input type="file" ref={attachFileRef} className="hidden" onChange={handleAttach} />
+            <div className="mt-4 space-y-2">
+                {courseFiles.map(file => (
+                    <div key={file.id} className="flex justify-between items-center p-2 bg-white/5 rounded-lg">
+                        <p>{file.name}</p>
+                        <Button variant="outline" onClick={() => handleView(file.id)}>View</Button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+
 export default AcademicsManager;

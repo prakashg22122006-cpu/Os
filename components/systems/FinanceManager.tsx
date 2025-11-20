@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
@@ -6,6 +5,12 @@ import Input from '../ui/Input';
 import { FinancialTransaction, TransactionCategory, Budget } from '../../types';
 import { addFile, getFile } from '../../utils/db';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+  </h3>
+);
 
 const downloadData = (content: string, fileName: string, contentType: string) => {
     const a = document.createElement("a");
@@ -24,14 +29,14 @@ const OverviewTab: React.FC<{ transactions: FinancialTransaction[], categories: 
     const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
     const monthlyData = useMemo(() => {
-        const filtered = transactions.filter(t => t.date && t.date.startsWith(month));
+        const filtered = transactions.filter(t => t.date.startsWith(month));
         const income = filtered.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
         const expense = filtered.filter(t => t.amount < 0).reduce((acc, t) => acc + t.amount, 0);
         return { income, expense: Math.abs(expense) };
     }, [transactions, month]);
     
     const expenseByCategory = useMemo(() => {
-        const filtered = transactions.filter(t => t.date && t.date.startsWith(month) && t.amount < 0);
+        const filtered = transactions.filter(t => t.date.startsWith(month) && t.amount < 0);
         const categoryMap = new Map<string, number>();
         filtered.forEach(t => {
             const categoryName = categories.find(c => c.id === t.categoryId)?.name || 'Uncategorized';
@@ -67,7 +72,7 @@ const OverviewTab: React.FC<{ transactions: FinancialTransaction[], categories: 
                             <Pie data={expenseByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                                 {expenseByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                             </Pie>
-                            <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} contentStyle={{ backgroundColor: 'var(--bg-offset)', border: '1px solid var(--grad-1)' }} />
+                            <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} contentStyle={{ backgroundColor: '#0b1626', border: '1px solid #5aa1ff' }} />
                             <Legend />
                         </PieChart>
                     </ResponsiveContainer>
@@ -135,21 +140,21 @@ const TransactionsTab: React.FC<{
                    <Input type="date" value={formData.date || ''} onChange={e => setFormData(f => ({...f, date: e.target.value}))}/>
                    <Input placeholder="Description" value={formData.description || ''} onChange={e => setFormData(f => ({...f, description: e.target.value}))} />
                    <Input type="number" placeholder="Amount (e.g., -50 for expense)" value={formData.amount || ''} onChange={e => setFormData(f => ({...f, amount: parseFloat(e.target.value)}))} />
-                   <select value={formData.categoryId || ''} onChange={e => setFormData(f => ({...f, categoryId: parseInt(e.target.value)}))} className="glass-select w-full">
+                   <select value={formData.categoryId || ''} onChange={e => setFormData(f => ({...f, categoryId: parseInt(e.target.value)}))} className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-lg w-full">
                         <option value="">Select Category</option>
-                        <optgroup label="Income">{incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-                        <optgroup label="Expense">{expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                        <optgroup label="Income" className="bg-[#0b1626]">{incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
+                        <optgroup label="Expense" className="bg-[#0b1626]">{expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
                    </select>
                 </div>
-                 <textarea placeholder="Notes..." value={formData.notes || ''} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} rows={2} className="glass-textarea w-full" />
+                 <textarea placeholder="Notes..." value={formData.notes || ''} onChange={e => setFormData(f => ({...f, notes: e.target.value}))} rows={2} className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-lg w-full" />
                  <div className="text-sm"><label>Receipt: </label><input type="file" ref={receiptRef}/></div>
                 <div className="flex gap-2">
                     <Button onClick={handleSave}>{editingId ? 'Save' : 'Add'}</Button>
-                    {editingId && <Button variant="glass" onClick={() => { setEditingId(null); setFormData({ date: new Date().toISOString().split('T')[0] }); }}>Cancel</Button>}
+                    {editingId && <Button variant="outline" onClick={() => { setEditingId(null); setFormData({ date: new Date().toISOString().split('T')[0] }); }}>Cancel</Button>}
                 </div>
             </div>
             <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-                {transactions.sort((a,b) => (b.date || '').localeCompare(a.date || '')).map(tx => (
+                {transactions.sort((a,b) => b.date.localeCompare(a.date)).map(tx => (
                     <div key={tx.id} className="p-2 bg-white/5 rounded-lg flex justify-between items-center">
                         <div>
                             <p className="font-semibold">{tx.description}</p>
@@ -157,9 +162,9 @@ const TransactionsTab: React.FC<{
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`font-bold ${tx.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>₹{tx.amount.toFixed(2)}</span>
-                            {tx.receiptFileId && <Button variant="glass" className="text-xs !p-1" onClick={() => handleViewReceipt(tx.receiptFileId)}>🧾</Button>}
-                            <Button variant="glass" className="text-xs !p-1" onClick={() => handleEdit(tx)}>Edit</Button>
-                            <Button variant="glass" className="text-xs !p-1" onClick={() => handleDelete(tx.id)}>Del</Button>
+                            {tx.receiptFileId && <Button variant="outline" className="text-xs !p-1" onClick={() => handleViewReceipt(tx.receiptFileId)}>🧾</Button>}
+                            <Button variant="outline" className="text-xs !p-1" onClick={() => handleEdit(tx)}>Edit</Button>
+                            <Button variant="outline" className="text-xs !p-1" onClick={() => handleDelete(tx.id)}>Del</Button>
                         </div>
                     </div>
                 ))}
@@ -188,7 +193,7 @@ const BudgetsTab: React.FC<{
     const monthlyExpenses = useMemo(() => {
         const map = new Map<number, number>();
         transactions
-            .filter(t => t.date && t.date.startsWith(month) && t.amount < 0)
+            .filter(t => t.date.startsWith(month) && t.amount < 0)
             .forEach(t => map.set(t.categoryId, (map.get(t.categoryId) || 0) + Math.abs(t.amount)));
         return map;
     }, [transactions, month]);
@@ -242,9 +247,9 @@ const CategoriesTab: React.FC<{
         <div className="max-w-md">
             <div className="flex gap-2 mb-4">
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="Category Name" />
-                <select value={type} onChange={e => setType(e.target.value as any)} className="glass-select">
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
+                <select value={type} onChange={e => setType(e.target.value as any)} className="bg-transparent border border-[rgba(255,255,255,0.08)] rounded-lg">
+                    <option value="expense" className="bg-[#0b1626]">Expense</option>
+                    <option value="income" className="bg-[#0b1626]">Income</option>
                 </select>
                 <Button onClick={handleAdd}>Add</Button>
             </div>
@@ -252,7 +257,7 @@ const CategoriesTab: React.FC<{
                 {categories.map(cat => (
                     <div key={cat.id} className="flex justify-between items-center p-2 bg-white/5 rounded">
                         <p>{cat.name} <span className="text-xs text-gray-400">({cat.type})</span></p>
-                        <Button variant="glass" className="text-xs !p-1" onClick={() => handleDelete(cat.id)}>Delete</Button>
+                        <Button variant="outline" className="text-xs !p-1" onClick={() => handleDelete(cat.id)}>Delete</Button>
                     </div>
                 ))}
             </div>
@@ -335,16 +340,17 @@ const FinanceManager: React.FC = () => {
     return (
         <>
             <div className="flex justify-between items-center mb-4">
+                <CardHeader title="Personal Finance" subtitle="Track your income, expenses, and budgets" />
                 <div className="flex gap-2">
-                    <Button variant="glass" onClick={() => handleExport('csv')}>Export CSV</Button>
-                    <Button variant="glass" onClick={() => handleExport('json')}>Export JSON</Button>
-                    <Button variant="glass" onClick={() => importFileRef.current?.click()}>Import</Button>
+                    <Button variant="outline" onClick={() => handleExport('csv')}>Export CSV</Button>
+                    <Button variant="outline" onClick={() => handleExport('json')}>Export JSON</Button>
+                    <Button variant="outline" onClick={() => importFileRef.current?.click()}>Import</Button>
                     <input type="file" ref={importFileRef} onChange={handleImport} className="hidden" accept=".json,.csv" />
                 </div>
             </div>
              <div className="flex border-b border-white/10 mb-4">
                 {TABS.map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400 hover:text-white'}`}>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-[#5aa1ff] border-b-2 border-[#5aa1ff]' : 'text-gray-400 hover:text-white'}`}>
                         {tab.label}
                     </button>
                 ))}

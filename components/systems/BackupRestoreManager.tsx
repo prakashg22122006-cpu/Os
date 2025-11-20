@@ -1,8 +1,15 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { getBackups, getBackup } from '../../utils/db';
+
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+    <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+        {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+    </h3>
+);
 
 const downloadJSON = (obj: any, name = 'export.json') => {
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
@@ -25,7 +32,6 @@ const BackupRestoreManager: React.FC = () => {
         { key: 'classes', name: 'Classes Schedule', data: context.classes, setter: context.setClasses },
         { key: 'studyLogs', name: 'Study Logs', data: context.studyLogs, setter: context.setStudyLogs },
         { key: 'semesters', name: 'Academics', data: context.semesters, setter: context.setSemesters },
-        { key: 'projects', name: 'Projects', data: context.projects, setter: context.setProjects },
         { key: 'financialTransactions', name: 'Transactions', data: context.financialTransactions, setter: context.setFinancialTransactions },
         { key: 'transactionCategories', name: 'Finance Categories', data: context.transactionCategories, setter: context.setTransactionCategories },
         { key: 'budgets', name: 'Budgets', data: context.budgets, setter: context.setBudgets },
@@ -146,7 +152,7 @@ const BackupRestoreManager: React.FC = () => {
 
         return (
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
-                <div className="bg-gradient-to-b from-bg-offset to-bg border border-[var(--grad-1)]/20 rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-[#5aa1ff]/20 rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
                     <header className="p-3 border-b border-white/10">
                         <h4 className="font-semibold text-lg">Restore Preview</h4>
                     </header>
@@ -171,14 +177,14 @@ const BackupRestoreManager: React.FC = () => {
                                     <input type="radio" name="restoreMode" value="overwrite" checked={restoreMode === 'overwrite'} onChange={() => setRestoreMode('overwrite')} className="mt-1"/>
                                     <div>
                                         <strong>Overwrite</strong>
-                                        <p className="text-xs text-gray-400">Replaces current data with the backup. <span className="font-bold text-red-400">Warning: Existing data in the affected modules will be deleted.</span></p>
+                                        <p className="text-xs text-gray-300">Replaces current data with the backup. <span className="font-bold text-red-400">Warning: Existing data in the affected modules will be deleted.</span></p>
                                     </div>
                                 </label>
                                 <label className="flex items-start gap-3 p-2 rounded bg-white/5 cursor-pointer">
                                     <input type="radio" name="restoreMode" value="merge" checked={restoreMode === 'merge'} onChange={() => setRestoreMode('merge')} className="mt-1"/>
                                     <div>
                                         <strong>Merge</strong>
-                                        <p className="text-xs text-gray-400">Adds new items from the backup to your current data. Items with duplicate IDs will be ignored.</p>
+                                        <p className="text-xs text-gray-300">Adds new items from the backup to your current data. Items with duplicate IDs will be ignored.</p>
                                     </div>
                                 </label>
                             </div>
@@ -195,6 +201,8 @@ const BackupRestoreManager: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            <CardHeader title="Backup & Restore" subtitle="Safeguard and manage your application data" />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
                     <h4 className="font-semibold mb-2">Manual Actions</h4>

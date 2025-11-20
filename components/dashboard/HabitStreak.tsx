@@ -1,6 +1,12 @@
 import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+  </h3>
+);
+
 const getTodayString = () => new Date().toISOString().split('T')[0];
 
 const calculateStreakInfo = (completedDates: string[]): { streak: number; isBroken: boolean } => {
@@ -69,10 +75,11 @@ const HabitStreak: React.FC = () => {
     };
 
     return (
-        <div className="p-4">
+        <>
+            <CardHeader title="Habit Streaks" />
             <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                 {habits.length === 0 ? (
-                    <p className="text-gray-400 text-center py-4">No habits yet. Add some in the Systems tab!</p>
+                    <p className="text-[#9fb3cf] text-center py-4">No habits yet. Add some in the Systems tab!</p>
                 ) : (
                     habits.map(habit => {
                         const isCompletedToday = habit.completedDates.includes(todayStr);
@@ -85,9 +92,9 @@ const HabitStreak: React.FC = () => {
                                         type="checkbox" 
                                         checked={isCompletedToday}
                                         onChange={(e) => handleToggleHabit(habit.id, e.target.checked)}
-                                        className="form-checkbox h-5 w-5 rounded bg-transparent border-gray-600 text-[var(--grad-1)] focus:ring-0 cursor-pointer"
+                                        className="form-checkbox h-5 w-5 rounded bg-transparent border-gray-600 text-[#5aa1ff] focus:ring-0 cursor-pointer"
                                     />
-                                    <span className={`transition-colors ${isCompletedToday ? 'text-white' : 'text-gray-400'}`}>{habit.name}</span>
+                                    <span className={`transition-colors ${isCompletedToday ? 'text-white' : 'text-[#9fb3cf]'}`}>{habit.name}</span>
                                 </label>
                                <HabitOrb streak={streak} isBroken={isBroken && streak === 0} />
                             </div>

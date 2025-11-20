@@ -1,0 +1,11 @@
+type,location,description
+script,https://cdn.tailwindcss.com,Tailwind CSS Runtime
+script,https://aistudiocdn.com/react@^19.2.0,React Library
+script,https://aistudiocdn.com/react-dom@^19.2.0,ReactDOM Library
+script,https://aistudiocdn.com/recharts@^3.4.1,Recharts Visualization Library
+font,https://fonts.googleapis.com/css2?family=Fira+Code...,Google Fonts (Inter Lora Fira Code)
+json,metadata.json,App Metadata
+code,index.tsx,Entry Point
+code,App.tsx,Main Application Logic
+code,utils/db.ts,IndexedDB Helper
+code,context/AppContext.tsx,State Management

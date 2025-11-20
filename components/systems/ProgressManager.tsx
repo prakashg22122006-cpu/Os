@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Course, LearningLog, Quiz } from '../../types';
@@ -5,6 +6,12 @@ import Button from '../ui/Button';
 import ProgressBar from '../ui/ProgressBar';
 import Card from '../ui/Card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+    <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+        {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+    </h3>
+);
 
 const LearningTimeTracker: React.FC = () => {
     const { learningLogs, setLearningLogs } = useAppContext();
@@ -83,10 +90,10 @@ const LearningTimeTracker: React.FC = () => {
                 <h4 className="font-semibold mb-2">This Week's Learning Time (minutes)</h4>
                  <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={weeklyChartData}>
-                        <XAxis dataKey="name" stroke="var(--text-dim)" fontSize={12} />
-                        <YAxis stroke="var(--text-dim)" fontSize={12}/>
-                        <Tooltip contentStyle={{ backgroundColor: 'var(--bg-offset)', border: '1px solid var(--grad-1)' }} />
-                        <Bar dataKey="minutes" fill="var(--grad-1)" />
+                        <XAxis dataKey="name" stroke="#9fb3cf" fontSize={12} />
+                        <YAxis stroke="#9fb3cf" fontSize={12}/>
+                        <Tooltip contentStyle={{ backgroundColor: '#0b1626', border: '1px solid var(--accent-color)' }} />
+                        <Bar dataKey="minutes" fill="var(--accent-color)" />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -158,11 +165,12 @@ const ProgressManager: React.FC = () => {
 
     return (
         <div>
+            <CardHeader title="Progress Monitor" subtitle="Track your learning and performance" />
              <div className="flex border-b border-white/10 mb-4">
-                <button onClick={() => setActiveTab('time')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'time' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Learning Time</button>
-                <button onClick={() => setActiveTab('courses')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'courses' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Courses</button>
-                <button onClick={() => setActiveTab('quizzes')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'quizzes' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Quizzes</button>
-                <button onClick={() => setActiveTab('assignments')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'assignments' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Assignments</button>
+                <button onClick={() => setActiveTab('time')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'time' ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]' : 'text-gray-400'}`}>Learning Time</button>
+                <button onClick={() => setActiveTab('courses')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'courses' ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]' : 'text-gray-400'}`}>Courses</button>
+                <button onClick={() => setActiveTab('quizzes')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'quizzes' ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]' : 'text-gray-400'}`}>Quizzes</button>
+                <button onClick={() => setActiveTab('assignments')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'assignments' ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]' : 'text-gray-400'}`}>Assignments</button>
             </div>
             <div>
                 {activeTab === 'time' && <LearningTimeTracker />}

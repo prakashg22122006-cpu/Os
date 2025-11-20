@@ -1,28 +1,20 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
-import { Note, Task, Project, Course, StoredFile } from '../../types';
+import { Course, StoredFile } from '../../types';
 import { getFiles, getFile } from '../../utils/db';
 
-const stripHtml = (html: string | undefined) => (html || '').replace(/<[^>]+>/g, '');
-
-const ResultSection = ({ title, items, renderItem }: { title: string; items: any[]; renderItem: (item: any) => React.ReactNode }) => (
-    <div>
-        <h4 className="font-semibold mb-2 text-text">{title} ({items.length})</h4>
-        <div className="space-y-2">
-            {items.map((item, index) => (
-                <div key={item.id || item.ts || (item.course && item.course.name) || index} className="p-2 bg-black/10 rounded-lg">
-                    {renderItem(item)}
-                </div>
-            ))}
-        </div>
-    </div>
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+    <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+        {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+    </h3>
 );
 
 const GlobalSearch: React.FC = () => {
     const {
-        notes, tasks, projects, semesters,
+        notes, tasks, semesters,
         setViewingTask, setViewingFile,
     } = useAppContext();
     const [files, setFiles] = useState<StoredFile[]>([]);
@@ -45,6 +37,8 @@ const GlobalSearch: React.FC = () => {
         if (!searchTerm.trim()) return null;
         const term = searchTerm.toLowerCase();
         
+        const stripHtml = (html: string) => html.replace(/<[^>]+>/g, '');
+
         const foundNotes = notes.filter(n => 
             n.title.toLowerCase().includes(term) ||
             stripHtml(n.content).toLowerCase().includes(term) ||
@@ -57,16 +51,10 @@ const GlobalSearch: React.FC = () => {
             t.tags?.some(t => t.toLowerCase().includes(term))
         );
         
-        const foundProjects = projects.filter(p => 
-            p.name.toLowerCase().includes(term) ||
-            p.desc.toLowerCase().includes(term) ||
-            p.stack.toLowerCase().includes(term)
-        );
-
         const foundCourses: {course: Course, semester: string}[] = [];
         semesters.forEach(s => {
             s.courses.forEach(c => {
-                if (c.name.toLowerCase().includes(term) || (c.code || '').toLowerCase().includes(term)) {
+                if (c.name.toLowerCase().includes(term) || (c.code || '').toLowerCase().includes(term) || (c.notes || '').toLowerCase().includes(term)) {
                     foundCourses.push({ course: c, semester: s.name });
                 }
             });
@@ -80,45 +68,87 @@ const GlobalSearch: React.FC = () => {
         return {
             notes: foundNotes,
             tasks: foundTasks,
-            projects: foundProjects,
             courses: foundCourses,
             files: foundFiles,
         };
-    }, [searchTerm, notes, tasks, projects, semesters, files]);
+    }, [searchTerm, notes, tasks, semesters, files]);
+
+    const handleViewFile = async (id: number) => {
+        const fileData = await getFile(id);
+        if (fileData) setViewingFile(fileData);
+    };
 
     return (
-        <>
-            <div className="flex gap-2 mb-4">
-                <Input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search across all your data..."
-                    className="text-lg"
-                />
-            </div>
-            
-            <div className="flex flex-wrap gap-1 mb-4">
-                <span className="text-sm text-text-dim my-auto">Tags:</span>
-                {allTags.map(tag => (
-                    <Button key={tag} variant="outline" className="text-xs" onClick={() => setSearchTerm(tag)}>#{tag}</Button>
-                ))}
-            </div>
-
-            {searchResults && (
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                    {searchResults.notes.length > 0 && <ResultSection title="Notes" items={searchResults.notes} renderItem={(item: Note) => <div><strong>{item.title}</strong><p className="text-xs text-text-dim truncate">{stripHtml(item.content)}</p></div>} />}
-                    {searchResults.tasks.length > 0 && <ResultSection title="Tasks" items={searchResults.tasks} renderItem={(item: Task) => <div onClick={() => setViewingTask(item)} className="cursor-pointer"><strong>{item.title}</strong></div>} />}
-                    {searchResults.projects.length > 0 && <ResultSection title="Projects" items={searchResults.projects} renderItem={(item: Project) => <div><strong>{item.name}</strong><p className="text-xs text-text-dim">{item.stack}</p></div>} />}
-                    {searchResults.courses.length > 0 && <ResultSection title="Courses" items={searchResults.courses} renderItem={(item: {course: Course, semester: string}) => <div><strong>{item.course.name}</strong><p className="text-xs text-text-dim">{item.semester}</p></div>} />}
-                    {searchResults.files.length > 0 && <ResultSection title="Files" items={searchResults.files} renderItem={(item: StoredFile) => <div onClick={async () => setViewingFile(await getFile(item.id))} className="cursor-pointer"><strong>{item.name}</strong></div>} />}
-                    
-                    {searchResults.notes.length === 0 && searchResults.tasks.length === 0 && searchResults.projects.length === 0 && searchResults.courses.length === 0 && searchResults.files.length === 0 && (
-                        <p className="text-center text-text-dim p-4">No results found for "{searchTerm}".</p>
-                    )}
+        <div>
+            <CardHeader title="Global Search & Tags" subtitle="Find anything across your OS" />
+            <Input 
+                type="search"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search notes, tasks, files, courses..."
+                className="w-full text-base p-3"
+            />
+            {searchTerm.trim().length === 0 && (
+                 <div className="mt-4">
+                    <h4 className="font-semibold text-sm mb-2 text-gray-300">Unified Tag System</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {allTags.length > 0 ? allTags.map(tag => (
+                            <button key={tag} onClick={() => setSearchTerm(t => t.toLowerCase().includes(tag.toLowerCase()) ? t : `${t} #${tag}`.trim())} className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full hover:bg-blue-500/40">
+                                #{tag}
+                            </button>
+                        )) : <p className="text-sm text-gray-500">No tags found. Add tags to notes, tasks, and files to see them here.</p>}
+                    </div>
                 </div>
             )}
-        </>
+            <div className="mt-4 max-h-[60vh] overflow-y-auto space-y-4 pr-2">
+                {searchResults?.notes.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold text-gray-300">Notes ({searchResults.notes.length})</h4>
+                        {searchResults.notes.map(item => (
+                            <div key={item.id} className="p-2 bg-black/20 rounded mt-1 text-sm">
+                                <p className="font-bold">{item.title}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                 {searchResults?.tasks.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold text-gray-300">Tasks ({searchResults.tasks.length})</h4>
+                        {searchResults.tasks.map(item => (
+                            <div key={item.id} className="flex justify-between items-center p-2 bg-black/20 rounded mt-1 text-sm">
+                                <p className="font-bold">{item.title}</p>
+                                <Button variant="outline" className="text-xs !p-1" onClick={() => setViewingTask(item)}>View</Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                 {searchResults?.files.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold text-gray-300">Files ({searchResults.files.length})</h4>
+                        {searchResults.files.map(item => (
+                             <div key={item.id} className="flex justify-between items-center p-2 bg-black/20 rounded mt-1 text-sm">
+                                <p className="font-bold">{item.name}</p>
+                                <Button variant="outline" className="text-xs !p-1" onClick={() => handleViewFile(item.id)}>View</Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                 {searchResults?.courses.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold text-gray-300">Courses ({searchResults.courses.length})</h4>
+                        {searchResults.courses.map(item => (
+                            <div key={item.course.name + item.semester} className="p-2 bg-black/20 rounded mt-1 text-sm">
+                                <p className="font-bold">{item.course.name} <span className="text-xs text-gray-400">({item.semester})</span></p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                 {searchResults && Object.values(searchResults).every((arr: any[]) => arr.length === 0) && (
+                    <p className="text-center text-gray-400 p-8">No results found for "{searchTerm}".</p>
+                )}
+            </div>
+        </div>
     );
-};
+}
 
 export default GlobalSearch;

@@ -33,7 +33,7 @@ const RichTextEditor: React.FC<{ value: string; onChange: (content: string) => v
                 ref={editorRef}
                 contentEditable
                 onInput={handleInput}
-                className="bg-transparent border border-border-color text-gray-400 p-2 rounded-lg w-full flex-grow box-border focus:outline-none focus:ring-2 focus:ring-[var(--grad-1)]"
+                className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-lg w-full flex-grow box-border focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
             />
         </div>
     );

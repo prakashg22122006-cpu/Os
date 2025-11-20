@@ -39,7 +39,6 @@ const compressImage = (file: File): Promise<Blob> => {
         reader.onload = (event) => {
             const img = new Image();
             img.src = event.target?.result as string;
-            img.onerror = () => reject(new Error('Failed to load image'));
             img.onload = () => {
                 let width = img.width;
                 let height = img.height;

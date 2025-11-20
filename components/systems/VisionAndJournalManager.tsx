@@ -1,15 +1,13 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { VisionCard, JournalEntry, Mood } from '../../types';
+import { VisionCard, JournalEntry, Mood, StoredFile } from '../../types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { addFile, getFile } from '../../utils/db';
-import RichTextEditor from '../ui/RichTextEditor';
 
 const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
-    <h3 className="m-0 mb-2 text-sm font-bold text-text">
-        {title} {subtitle && <small className="text-text-dim font-normal ml-1">{subtitle}</small>}
+    <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+        {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
     </h3>
 );
 
@@ -152,6 +150,21 @@ const MOODS: { mood: Mood; emoji: string }[] = [
     { mood: 'Stressed', emoji: '😩' },
 ];
 
+const RichTextEditor: React.FC<{ value: string; onChange: (content: string) => void }> = ({ value, onChange }) => {
+    const editorRef = useRef<HTMLDivElement>(null);
+    useEffect(() => { if (editorRef.current && editorRef.current.innerHTML !== value) editorRef.current.innerHTML = value; }, [value]);
+    return (
+        <div className="flex-grow flex flex-col">
+            <div className="flex-shrink-0 flex gap-1 mb-1 p-1 bg-black/20 rounded-t-md">
+                {['bold', 'italic', 'underline', 'insertUnorderedList'].map(cmd => (
+                    <button key={cmd} onMouseDown={e => { e.preventDefault(); document.execCommand(cmd); }} className="px-2 py-1 text-xs rounded hover:bg-white/10">{cmd.replace('insertUnorderedList', 'List')}</button>
+                ))}
+            </div>
+            <div ref={editorRef} contentEditable onInput={() => onChange(editorRef.current?.innerHTML || '')} className="bg-transparent border border-[rgba(255,255,255,0.08)] text-[#9fb3cf] p-2 rounded-b-md w-full flex-grow focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+    );
+};
+
 const JournalEditorModal: React.FC<{ entry?: JournalEntry, onSave: (entryData: Omit<JournalEntry, 'id'|'ts'> & { id?: number }) => void, onClose: () => void }> = ({ entry, onSave, onClose }) => {
     const [data, setData] = useState<Omit<JournalEntry, 'id'|'ts'>>({
         date: entry?.date || new Date().toISOString().split('T')[0],
@@ -164,7 +177,7 @@ const JournalEditorModal: React.FC<{ entry?: JournalEntry, onSave: (entryData: O
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-gradient-to-b from-bg-offset to-bg border border-blue-500/20 rounded-xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-b from-[#0e1a32] to-[#0a1524] border border-blue-500/20 rounded-xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <header className="p-3 border-b border-white/10"><h4 className="font-semibold text-lg">{entry ? 'Edit Entry' : 'New Journal Entry'}</h4></header>
                 <main className="p-4 space-y-3 flex-grow overflow-y-auto flex flex-col">
                     <div className="flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -175,9 +188,7 @@ const JournalEditorModal: React.FC<{ entry?: JournalEntry, onSave: (entryData: O
                             ))}
                         </div>
                     </div>
-                    <div className="flex-grow flex flex-col">
-                        <RichTextEditor value={data.content} onChange={content => setData(d => ({ ...d, content }))} />
-                    </div>
+                    <RichTextEditor value={data.content} onChange={content => setData(d => ({ ...d, content }))} />
                 </main>
                 <footer className="p-3 flex gap-2 justify-end border-t border-white/10 flex-shrink-0">
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -193,7 +204,7 @@ const Journal: React.FC = () => {
     const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
     const importFileRef = useRef<HTMLInputElement>(null);
     
-    const sortedEntries = useMemo(() => [...journalEntries].sort((a, b) => (b.date || '').localeCompare(a.date || '')), [journalEntries]);
+    const sortedEntries = useMemo(() => [...journalEntries].sort((a, b) => b.date.localeCompare(a.date)), [journalEntries]);
 
     const handleSave = (entryData: Omit<JournalEntry, 'id' | 'ts'> & { id?: number }) => {
         if (entryData.id) {
@@ -244,7 +255,7 @@ const Journal: React.FC = () => {
                                 <Button variant="outline" className="text-xs !p-1.5" onClick={() => handleDelete(entry.id)}>Del</Button>
                            </div>
                         </div>
-                        <div className="prose prose-sm prose-invert mt-2 text-text-dim max-w-none" dangerouslySetInnerHTML={{ __html: entry.content }}></div>
+                        <div className="prose prose-sm prose-invert mt-2 text-gray-300 max-w-none" dangerouslySetInnerHTML={{ __html: entry.content }}></div>
                     </div>
                 ))}
             </div>
@@ -291,14 +302,14 @@ const VisionAndJournalManager: React.FC = () => {
     }, []);
 
     return (
-        <div ref={containerRef} className={`p-4 rounded-xl ${isFullScreen ? 'h-screen w-screen overflow-y-auto bg-gradient-to-b from-bg to-bg-offset' : ''}`}>
+        <div ref={containerRef} className={`p-4 rounded-xl ${isFullScreen ? 'h-screen w-screen overflow-y-auto bg-gradient-to-b from-[#071023] to-[#071826]' : ''}`}>
             <div className="flex justify-between items-center mb-4">
                 <CardHeader title="Inner World" subtitle="Vision Board & Journal" />
                 <Button variant="outline" onClick={toggleFullScreen}>{isFullScreen ? 'Exit Full-Screen' : 'Full-Screen'}</Button>
             </div>
             <div className="flex border-b border-white/10 mb-4">
-                <button onClick={() => setActiveTab('vision')} className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'vision' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Vision Board</button>
-                <button onClick={() => setActiveTab('journal')} className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'journal' ? 'text-[var(--grad-1)] border-b-2 border-[var(--grad-1)]' : 'text-gray-400'}`}>Journal</button>
+                <button onClick={() => setActiveTab('vision')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'vision' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}>Vision Board</button>
+                <button onClick={() => setActiveTab('journal')} className={`px-4 py-2 text-sm font-semibold ${activeTab === 'journal' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'}`}>Journal</button>
             </div>
             <div className={`${isFullScreen ? 'h-[calc(100vh-10rem)]' : 'h-[26rem]'}`}>
                 {activeTab === 'vision' && <VisionBoard />}

@@ -1,9 +1,14 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Task, TaskPriority } from '../../types';
 import Button from '../ui/Button';
+
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({title, subtitle}) => (
+  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+  </h3>
+);
 
 type Quadrant = 'iu' | 'inu' | 'niu' | 'ninu';
 
@@ -67,6 +72,7 @@ const PriorityMatrix: React.FC = () => {
 
     return (
         <>
+            <CardHeader title="Productivity: Priority Matrix" subtitle="Drag tasks to re-prioritize"/>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-white">
                 <MatrixQuadrant title="Do" subtitle="Important & Urgent" tasks={matrix.iu} quadrant='iu' onDragStart={handleDragStart} onDrop={handleDrop} onViewTask={setViewingTask} accentColor="rgba(239, 68, 68, 0.1)" />
                 <MatrixQuadrant title="Schedule" subtitle="Important & Not Urgent" tasks={matrix.inu} quadrant='inu' onDragStart={handleDragStart} onDrop={handleDrop} onViewTask={setViewingTask} accentColor="rgba(59, 130, 246, 0.1)" />

@@ -4,6 +4,12 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Habit } from '../../types';
 
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({ title, subtitle }) => (
+  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+  </h3>
+);
+
 const HabitsManager: React.FC = () => {
     const { habits, setHabits } = useAppContext();
     const [newHabitName, setNewHabitName] = useState('');
@@ -27,6 +33,7 @@ const HabitsManager: React.FC = () => {
 
     return (
         <>
+            <CardHeader title="Habits Manager" subtitle="Create and manage your daily habits" />
             <div className="flex gap-2 mb-4">
                 <Input
                     value={newHabitName}
@@ -38,7 +45,7 @@ const HabitsManager: React.FC = () => {
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                 {habits.length === 0 ? (
-                    <p className="text-gray-400">No habits created yet.</p>
+                    <p className="text-[#9fb3cf]">No habits created yet.</p>
                 ) : (
                     habits.map(habit => (
                         <div key={habit.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">

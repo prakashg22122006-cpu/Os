@@ -1,6 +1,4 @@
 
-
-
 export type EngagementActivity = 
   | 'app_session_started'
   | 'view_resource'
@@ -26,7 +24,6 @@ export interface Class {
   color?: string;
   note_richtext?: string;
   attachments?: number[];
-  day?: string; // 'Monday', 'Tuesday', etc.
 }
 
 export interface StudyLog {
@@ -196,7 +193,7 @@ export interface Flashcard {
   nextReview: number; // timestamp
   interval: number; // days
   easeFactor: number; // starts at 2.5
-  status: 'new' | 'learning' | 'review';
+  status: 'new' | 'learning' | 'review' | 'failed';
 }
 
 export interface Deck {
@@ -204,19 +201,62 @@ export interface Deck {
   cards: Flashcard[];
 }
 
+export interface MemoryLocus {
+  id: number;
+  name: string; // e.g., "Front Door", "Sofa"
+  x: number; // relative position %
+  y: number; // relative position %
+  linkedCardId?: number;
+}
+
+export interface MemoryPalace {
+  id: number;
+  name: string;
+  bgImageId?: number;
+  loci: MemoryLocus[];
+}
+
+export type NoteTemplate = 'standard' | 'cornell' | 'zettel' | 'mindmap' | 'blurting' | 'feynman';
+
+export interface MindMapNode {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  children: string[]; // ids of children
+}
 
 export interface Note {
   id: number;
   title: string;
-  content: string;
+  content: string; // Used for Standard, Zettel
+  
+  // Cornell specific
+  cornellCues?: string;
+  cornellSummary?: string;
+  
+  // Mindmap specific
+  mindMapData?: {
+      nodes: MindMapNode[];
+      rootId: string;
+  };
+
+  // Blurting specific
+  blurtingPrompt?: string;
+  blurtingAnswer?: string; // what user typed
+
+  template: NoteTemplate; 
+  
   attachments: number[];
   ts: number; // createdAt
   updatedAt: number;
   tags?: string[];
   isPinned?: boolean;
   color?: string; // e.g., 'bg-yellow-500'
-  // for migration
   category?: string;
+  
+  // Zettelkasten linking
+  links?: number[]; // IDs of linked notes
 }
 
 
@@ -250,26 +290,11 @@ export interface Event {
 
 export interface PomodoroLog {
   ts: number;
-  duration: number; // in minutes
-  startTime?: number; // Log start timestamp
-  endTime?: number;   // Log end timestamp
-  modeName: string;
-  presetName: string;
-  completed: boolean; // Did they finish the whole duration?
-  
-  // For intelligence
-  linkedTaskId?: number;
-  sessionGoal?: string;
-  distractionCount?: number;
-  focusRating?: number; // 1-5
-  energyRating?: number; // 1-5
+  focusTime: number; // in minutes
+  breakTime: number; // in minutes
+  cycles: number;
+  variant: 'classic' | '52/17' | '90-deep';
   notes?: string;
-  taskCompleted?: boolean;
-  
-  // Old fields for migration
-  focusTime?: number; 
-  breakTime?: number;
-  cycles?: number;
 }
 
 export interface LearningLog {
@@ -330,7 +355,6 @@ export interface Subtask {
   id: number;
   title: string;
   completed: boolean;
-  dueDate?: string; // YYYY-MM-DD
 }
 
 export type TaskStatus = 'Backlog' | 'In Progress' | 'Review' | 'Done';
@@ -349,6 +373,7 @@ export interface Task {
   subtasks: Subtask[];
   dependencies: number[]; // array of other Task IDs
   tags?: string[];
+  difficulty?: number; // 1-5 for Hard-First Method
 }
 
 export type Mood = 'Happy' | 'Productive' | 'Neutral' | 'Sad' | 'Stressed';
@@ -369,37 +394,6 @@ export interface JournalEntry {
     ts: number;
 }
 
-// New Pomodoro System Types
-export interface TimerMode {
-  id: string;
-  name: string;
-  duration: number; // in minutes
-  color: string;
-}
-
-export interface PomodoroPreset {
-  id: number;
-  name: string;
-  modes: TimerMode[];
-  sequence: string[]; // array of TimerMode IDs
-  environment?: {
-    theme?: 'dark' | 'light' | 'system';
-    playlistId?: number | null;
-  };
-}
-
-export interface LiveCalendarType {
-  id: number;
-  name: string;
-  description: string;
-}
-
-export interface LiveClockType {
-  id: number;
-  name: string;
-  description: string;
-}
-
 // New App Settings
 export interface DashboardWidgetSetting {
     id: string;
@@ -416,13 +410,6 @@ export interface SystemModuleSetting {
     minimized?: boolean;
 }
 
-export interface ToolbarItem {
-    id: string;
-    icon: 'search' | 'focus' | 'add' | 'theme' | 'settings' | 'music';
-    label: string;
-    enabled: boolean;
-}
-
 export interface ThemeConfig {
     accentHue: number;
     accentSaturation: number;
@@ -430,10 +417,6 @@ export interface ThemeConfig {
     bgHue: number;
     bgSaturation: number;
     bgLightness: number;
-    // Advanced Appearance
-    glassOpacity?: number; // 0-100
-    glassBlur?: number; // px
-    borderRadius?: number; // px
 }
 
 export interface WallpaperConfig {
@@ -452,11 +435,9 @@ export interface AppSettings {
     themeConfig: ThemeConfig;
     layout: 'spacious' | 'cozy' | 'compact';
     fontFamily: 'sans' | 'serif' | 'mono';
-    customFont?: string; // User defined font family string
     dashboardColumns: '2' | '3';
     dashboardWidgets: DashboardWidgetSetting[];
     systemModules: SystemModuleSetting[];
-    toolbar: ToolbarItem[];
     wallpaper: WallpaperConfig;
     defaults: {
         pomodoro: {
@@ -474,8 +455,6 @@ export interface AppSettings {
         defaultTheme: string;
         defaultTimerSize: number;
     };
-    customCSS?: string;
-    timetableReferenceId?: number;
 }
 
 export interface LinkResource {
@@ -489,122 +468,65 @@ export interface LinkResource {
   folder?: string;
 }
 
-export interface Notification {
-  id: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  title: string;
-  message: string;
-  timestamp: number;
-  read: boolean;
-}
+// --- CS WORKSPACE TYPES ---
 
-export interface ChatMessage {
-  id: number;
-  sender: string;
-  content: string;
-  timestamp: number;
-  channel: string;
-  isMe: boolean;
-}
-
-export interface CodeSnippet {
-  id: number;
-  title: string;
-  language: string;
-  code: string;
-  updatedAt: number;
-}
-
-
-// --- NEW CS WORKSPACE TYPES ---
-
-export type PracticeType = 'question' | 'drill' | 'kata' | 'debug';
-
-export interface PracticeItem {
-    id: number;
-    type: PracticeType;
-    title: string;
-    description: string;
-    content: string; // Code for kata/debug, Question text for others
-    solution?: string; // Correct answer or corrected code
-    tags: string[];
-    difficulty: 'Easy' | 'Medium' | 'Hard';
-    lastPracticed?: number;
-    attempts?: number;
-    successRate?: number; // 0-100
-    timeLimit?: number; // in seconds
-}
-
-export interface DesignNode {
+export interface SnippetVersion {
     id: string;
-    type: 'box' | 'database' | 'actor' | 'cloud' | 'text';
-    label: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-}
-
-export interface DesignEdge {
-    id: string;
-    from: string;
-    to: string;
+    ts: number;
+    code: string;
     label?: string;
 }
 
-export interface DesignDiagram {
+export interface CodeSnippet {
     id: number;
     title: string;
-    nodes: DesignNode[];
-    edges: DesignEdge[];
-    updatedAt: number;
-}
-
-export interface AlgoVisualStep {
-    description: string;
-    visualData: string; // Could be JSON representing array state, ASCII art, etc.
-}
-
-export interface AlgoVisual {
-    id: number;
-    title: string;
-    steps: AlgoVisualStep[];
-    updatedAt: number;
-}
-
-export interface FeynmanSession {
-    id: number;
-    concept: string;
-    explanation: string; // Step 1
-    gaps: string; // Step 2: Identified missing knowledge
-    simplified: string; // Step 3: Refined simple English
-    analogy: string; // Step 4: Real world analogy
-    updatedAt: number;
-}
-
-export interface KnowledgeNode {
-    id: string;
-    label: string;
-    x: number;
-    y: number;
-}
-
-export interface KnowledgeEdge {
-    id: string;
-    source: string;
-    target: string;
-}
-
-export interface KnowledgeMap {
-    nodes: KnowledgeNode[];
-    edges: KnowledgeEdge[];
-}
-
-export interface ReferenceItem {
-    id: number;
-    title: string;
-    content: string; // Markdown/RichText
-    category: string;
+    language: string;
+    code: string;
     tags: string[];
-    updatedAt: number;
+    category?: string;
+    ts: number;
+    versions?: SnippetVersion[];
+}
+
+export interface Algorithm {
+    id: number;
+    name: string;
+    type: 'Sorting' | 'Searching' | 'Graph' | 'DP' | 'Tree' | 'Other';
+    complexityTime: string; // Big O
+    complexitySpace: string; // Big O
+    description?: string;
+    codeExample?: string; // Usage example
+    status: 'To Learn' | 'Learning' | 'Mastered';
+    notes?: string;
+}
+
+export interface BugLog {
+    id: number;
+    issue: string;
+    severity: 'Low' | 'Medium' | 'High' | 'Critical';
+    status: 'Open' | 'In Progress' | 'Resolved';
+    project?: string;
+    stepsToReproduce?: string;
+    resolution?: string;
+    ts: number;
+}
+
+export interface LabRecord {
+    id: number;
+    name: string;
+    subject: string;
+    date: string;
+    procedure?: string;
+    observations?: string;
+    ts: number;
+}
+
+export interface ResearchPaper {
+    id: number;
+    title: string;
+    field: string;
+    authors?: string;
+    link?: string;
+    notes?: string;
+    ts: number;
 }

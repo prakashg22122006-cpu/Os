@@ -1,10 +1,15 @@
 
-
 import React, { useMemo, useRef } from 'react';
 import { RadialBarChart, RadialBar, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAppContext } from '../../context/AppContext';
 import Button from '../ui/Button';
 import type { StudyLog } from '../../types';
+
+const CardHeader: React.FC<{ title: string, subtitle?: string }> = ({title, subtitle}) => (
+  <h3 className="m-0 mb-2 text-sm font-bold text-[#cfe8ff]">
+    {title} {subtitle && <small className="text-[#9fb3cf] font-normal ml-1">{subtitle}</small>}
+  </h3>
+);
 
 const COLORS = ['#5aa1ff', '#3bb0ff', '#23c4ff', '#00d7ff', '#00e7f5'];
 
@@ -61,7 +66,7 @@ const StudyProgress: React.FC = () => {
   }, [studyLogs]);
   
   const { insights, moodColor } = useMemo(() => {
-    if (studyLogs.length === 0) return { insights: [], moodColor: 'var(--grad-1)' };
+    if (studyLogs.length === 0) return { insights: [], moodColor: 'var(--accent-color)' };
 
     const recentLogs = studyLogs.filter(log => {
         const logDate = new Date(log.ts);
@@ -167,11 +172,12 @@ const StudyProgress: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-full justify-between p-4" style={{'--dynamic-accent': moodColor} as React.CSSProperties}>
+    <div className="flex flex-col h-full justify-between" style={{'--dynamic-accent': moodColor} as React.CSSProperties}>
       <div>
+        <CardHeader title="Knowledge Bank: Study Tracker" />
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 min-w-0">
-            <div className="text-gray-400 text-xs mb-2">Hours by Subject</div>
+            <div className="text-[#9fb3cf] text-xs mb-2">Hours by Subject</div>
             {chartData.length > 0 ? (
               <div style={{ width: '100%', height: 150 }}>
                 <ResponsiveContainer>
@@ -191,30 +197,30 @@ const StudyProgress: React.FC = () => {
                           animationDuration={1500}
                       />
                       <Legend iconSize={10} layout="vertical" verticalAlign="middle" align="right" />
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--bg-offset)', border: '1px solid var(--dynamic-accent)' }}/>
+                      <Tooltip contentStyle={{ backgroundColor: '#0b1626', border: '1px solid var(--dynamic-accent)' }}/>
                   </RadialBarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
               <div className="h-[150px] w-full bg-[rgba(255,255,255,0.03)] flex items-center justify-center rounded-md">
-                  <p className="text-gray-400">No study data yet.</p>
+                  <p className="text-[#9fb3cf]">No study data yet.</p>
               </div>
             )}
           </div>
           <div className="w-full md:w-64 space-y-3">
               <div>
-                  <div className="text-gray-400 text-xs mb-1">Quick Insights</div>
+                  <div className="text-[#9fb3cf] text-xs mb-1">Quick Insights</div>
                   <div className="text-xs p-2 bg-[rgba(255,255,255,0.03)] rounded-md space-y-1">
                       {insights.map((insight, i) => <p key={i}>- {insight}</p>)}
                   </div>
               </div>
               <div>
-                  <div className="text-gray-400 text-xs mb-1">Recent Sessions</div>
+                  <div className="text-[#9fb3cf] text-xs mb-1">Recent Sessions</div>
                   <div className="space-y-1 max-h-20 overflow-y-auto pr-2">
                       {studyLogs.slice(0, 5).map(log => (
                           <div key={log.ts} className="flex justify-between items-center text-xs">
                               <strong className="text-white">{log.subject}</strong>
-                              <div className="text-gray-400">{log.hours.toFixed(1)} hrs</div>
+                              <div className="text-[#9fb3cf]">{log.hours.toFixed(1)} hrs</div>
                           </div>
                       ))}
                   </div>
@@ -223,9 +229,9 @@ const StudyProgress: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="mt-3 flex gap-2 border-t border-border-color pt-3">
-        <Button variant="glass" onClick={exportLogs}>Export Logs</Button>
-        <Button variant="glass" onClick={() => importFileRef.current?.click()}>Import Logs</Button>
+      <div className="mt-3 flex gap-2 border-t border-[rgba(255,255,255,0.08)] pt-3">
+        <Button variant="outline" onClick={exportLogs}>Export Logs</Button>
+        <Button variant="outline" onClick={() => importFileRef.current?.click()}>Import Logs</Button>
         <input type="file" ref={importFileRef} onChange={importLogs} className="hidden" accept="application/json" />
       </div>
     </div>

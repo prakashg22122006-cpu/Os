@@ -1,25 +1,21 @@
+
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'gradient' | 'glass' | 'sticker' | 'primary' | 'outline';
-  children: React.ReactNode;
+  variant?: 'primary' | 'outline' | 'cta';
 }
 
-const Button: React.FC<ButtonProps> = ({ children, variant = 'glass', className = '', ...props }) => {
-  const baseClasses = "font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg focus:ring-grad-1";
+const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', className = '', ...props }) => {
+  const baseClasses = "px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed";
   
-  const variantMap = {
-    gradient: 'gradient-button',
-    glass: 'glass-button',
-    sticker: 'sticker-button',
-    primary: 'gradient-button',
-    outline: 'outline-button',
+  const variantClasses = {
+    primary: "bg-[var(--accent-color)] text-[var(--accent-text-color)] hover:opacity-90",
+    outline: "bg-transparent border border-[var(--input-border-color)] text-[var(--text-color-dim)] hover:bg-[var(--button-outline-hover-bg)]",
+    cta: "bg-[var(--accent-color)] text-[var(--accent-text-color)] p-3 rounded-xl border-0 w-full cursor-pointer mt-2.5 hover:opacity-90"
   };
 
-  const finalClassName = `${baseClasses} ${variantMap[variant]} ${className}`;
-
   return (
-    <button className={finalClassName} {...props}>
+    <button className={`${baseClasses} ${variantClasses[variant]} ${className}`} {...props}>
       {children}
     </button>
   );
