@@ -337,7 +337,12 @@ const FileManager: React.FC = () => {
         try {
             for (const file of Array.from(filesToUpload)) { await addFile(file); }
         } catch (error) { alert("An error occurred during upload."); }
-        finally { await loadFiles(); setIsUploading(false); }
+        finally { 
+            await loadFiles(); 
+            setIsUploading(false);
+            // Fix: clear value to allow re-upload of same file
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
     };
     
     const handleUpdateFile = async (id: number, updates: Partial<Pick<StoredFile, 'name' | 'tags' | 'folder'>>) => {
@@ -387,104 +392,107 @@ const FileManager: React.FC = () => {
         handleUpload(e.dataTransfer.files);
     };
     
-    if (allResources.length === 0 && !isUploading) {
-        return <EmptyState onUpload={() => fileInputRef.current?.click()} onAddLink={() => setEditingLink({})} />;
-    }
-
     return (
-        <div className="flex flex-col md:flex-row gap-4 h-[80vh] md:h-[40rem] relative">
-            {editingLink && <LinkEditorModal resource={editingLink} onSave={handleSaveLink} onClose={() => setEditingLink(null)} />}
-            
-            {isMobile && (
-                <div className="absolute top-0 right-0 z-20 p-2">
-                    <Button variant="glass" className="text-xs" onClick={() => setMobileShowSidebar(!mobileShowSidebar)}>{mobileShowSidebar ? 'Hide Folders' : 'Show Folders'}</Button>
-                </div>
-            )}
+        <div className="relative h-[80vh] md:h-[40rem]">
+             <input type="file" multiple ref={fileInputRef} onChange={e => handleUpload(e.target.files)} className="hidden" />
+             
+             {editingLink && <LinkEditorModal resource={editingLink} onSave={handleSaveLink} onClose={() => setEditingLink(null)} />}
 
-            <div className={`${mobileShowSidebar ? 'flex' : 'hidden'} w-full md:w-1/4 md:border-r border-border-color pr-0 md:pr-4 flex-col order-2 md:order-1 md:flex flex-shrink-0`}>
-                 <div className="flex gap-2 w-full mb-4">
-                    <Button variant="glass" onClick={() => setEditingLink({})} className="flex-1 flex items-center justify-center gap-2 text-xs md:text-sm"><LinkIcon className="h-4 w-4"/> Add Link</Button>
-                    <Button variant="outline" onClick={handleNewFolder} className="flex-1 flex items-center justify-center gap-2 text-xs md:text-sm"><FolderIcon /> New Folder</Button>
-                </div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-gray-400"><FolderIcon /> Folders</h4>
-                <div className="flex flex-wrap md:block gap-2 space-y-0 md:space-y-1 mb-4 max-h-40 md:max-h-[50%] overflow-y-auto">
-                    {folders.map(f => (
-                        <button key={f} onClick={() => { setSelectedFolder(f); if(isMobile) setMobileShowSidebar(false); }} className={`px-3 py-1.5 md:w-full text-left md:p-1.5 rounded text-sm flex items-center gap-2 ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5 text-gray-400 bg-white/5 md:bg-transparent'}`}>
-                            {f === '/' ? '🗂️' : <FolderIcon className="h-4 w-4"/>} {f === '/' ? 'All' : f}
-                        </button>
-                    ))}
-                </div>
-                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-gray-400"><TagIcon /> Tags</h4>
-                <div className="flex flex-wrap gap-1 overflow-y-auto flex-grow">
-                    {allTags.map(tag => (
-                        <button key={tag} onClick={() => { setSelectedTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag]); if(isMobile) setMobileShowSidebar(false); }} 
-                        className={`text-xs px-2 py-1 rounded-full border ${selectedTags.includes(tag) ? 'bg-[var(--grad-1)]/30 text-[var(--grad-1)] border-[var(--grad-1)]/50' : 'bg-white/5 border-transparent'}`}>
-                            {tag}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="w-full md:w-2/4 flex flex-col order-1 md:order-2 h-full min-w-0">
-                <div className="flex gap-2 mb-2 flex-shrink-0 flex-wrap">
-                    <div className="relative flex-grow min-w-[150px]">
-                        <SearchIcon className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
-                        <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10 text-sm" />
-                    </div>
-                    <div className="flex bg-bg-offset border border-border-color rounded-lg p-0.5">
-                        <Button variant={viewMode === 'list' ? 'primary' : 'outline'} onClick={() => setViewMode('list')} className="!p-1.5 !border-0"><ListIcon /></Button>
-                        <Button variant={viewMode === 'grid' ? 'primary' : 'outline'} onClick={() => setViewMode('grid')} className="!p-1.5 !border-0"><GridIcon /></Button>
-                    </div>
-                    <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-xs md:text-sm"><UploadIcon /> Upload</Button>
-                    <input type="file" multiple ref={fileInputRef} onChange={e => handleUpload(e.target.files)} className="hidden" />
-                </div>
-                <div onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }} onDragLeave={() => setIsDraggingOver(false)} onDrop={handleDrop} className="relative flex-grow border border-dashed border-border-color rounded-lg p-2 overflow-y-auto">
-                    {isDraggingOver && <div className="absolute inset-0 bg-[var(--grad-1)]/20 backdrop-blur-sm z-10 flex items-center justify-center text-lg font-semibold border-2 border-dashed border-[var(--grad-1)] rounded-lg pointer-events-none"><UploadIcon className="mr-2"/> Drop files to upload</div>}
-                    {isUploading ? <p className="text-center p-8">Uploading...</p> : (
-                        viewMode === 'grid' ? (
-                            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                {filteredResources.map(res => (
-                                    <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`aspect-square bg-black/20 rounded-lg overflow-hidden cursor-pointer border-2 ${selectedResourceId === res.id && selectedResourceType === res.type ? 'border-[var(--grad-1)]' : 'border-transparent'}`}>
-                                        <div className="w-full h-full relative group">
-                                            <ResourceThumbnail resource={res} />
-                                            <p className="absolute bottom-0 left-0 right-0 text-xs truncate p-1 bg-black/50 text-white">{res.title}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {filteredResources.map(res => (
-                                    <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selectedResourceId === res.id && selectedResourceType === res.type ? 'bg-[var(--grad-1)]/20' : 'hover:bg-white/5'}`}>
-                                        <div className="text-2xl">{getResourceIcon(res.type, res.mimeType)}</div>
-                                        <div className="flex-grow min-w-0"><p className="text-sm font-semibold truncate">{res.title}</p><p className="text-xs text-gray-400">{formatBytes(res.size)}</p></div>
-                                        <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
-                                            {(res.tags || []).map(t => <span key={t} className="text-xs bg-white/10 px-1.5 py-0.5 rounded-full">{t}</span>)}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )
-                    )}
-                </div>
-            </div>
-
-            {selectedResource ? (
-                <DetailsPanel 
-                    resource={selectedResource} 
-                    onUpdateFile={handleUpdateFile} 
-                    onUpdateLink={handleUpdateLink} 
-                    onDeleteFile={handleDeleteFile} 
-                    onDeleteLink={handleDeleteLink} 
-                    allFolders={folders} 
-                    onClose={() => setSelectedResourceId(null)}
-                />
+            {allResources.length === 0 && !isUploading ? (
+                <EmptyState onUpload={() => fileInputRef.current?.click()} onAddLink={() => setEditingLink({})} />
             ) : (
-                <div className="hidden md:flex w-full md:w-1/4 items-center justify-center bg-black/20 rounded-lg text-gray-400 text-center p-4 border border-border-color order-3">
-                    <div>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
-                        Select a resource to see details
+                <div className="flex flex-col md:flex-row gap-4 h-full">
+                    {isMobile && (
+                        <div className="absolute top-0 right-0 z-20 p-2">
+                            <Button variant="glass" className="text-xs" onClick={() => setMobileShowSidebar(!mobileShowSidebar)}>{mobileShowSidebar ? 'Hide Folders' : 'Show Folders'}</Button>
+                        </div>
+                    )}
+
+                    <div className={`${mobileShowSidebar ? 'flex' : 'hidden'} w-full md:w-1/4 md:border-r border-border-color pr-0 md:pr-4 flex-col order-2 md:order-1 md:flex flex-shrink-0`}>
+                        <div className="flex gap-2 w-full mb-4">
+                            <Button variant="glass" onClick={() => setEditingLink({})} className="flex-1 flex items-center justify-center gap-2 text-xs md:text-sm"><LinkIcon className="h-4 w-4"/> Add Link</Button>
+                            <Button variant="outline" onClick={handleNewFolder} className="flex-1 flex items-center justify-center gap-2 text-xs md:text-sm"><FolderIcon /> New Folder</Button>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-gray-400"><FolderIcon /> Folders</h4>
+                        <div className="flex flex-wrap md:block gap-2 space-y-0 md:space-y-1 mb-4 max-h-40 md:max-h-[50%] overflow-y-auto">
+                            {folders.map(f => (
+                                <button key={f} onClick={() => { setSelectedFolder(f); if(isMobile) setMobileShowSidebar(false); }} className={`px-3 py-1.5 md:w-full text-left md:p-1.5 rounded text-sm flex items-center gap-2 ${selectedFolder === f ? 'bg-[var(--grad-1)]/20 text-[var(--grad-1)] font-semibold' : 'hover:bg-white/5 text-gray-400 bg-white/5 md:bg-transparent'}`}>
+                                    {f === '/' ? '🗂️' : <FolderIcon className="h-4 w-4"/>} {f === '/' ? 'All' : f}
+                                </button>
+                            ))}
+                        </div>
+                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-gray-400"><TagIcon /> Tags</h4>
+                        <div className="flex flex-wrap gap-1 overflow-y-auto flex-grow">
+                            {allTags.map(tag => (
+                                <button key={tag} onClick={() => { setSelectedTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag]); if(isMobile) setMobileShowSidebar(false); }} 
+                                className={`text-xs px-2 py-1 rounded-full border ${selectedTags.includes(tag) ? 'bg-[var(--grad-1)]/30 text-[var(--grad-1)] border-[var(--grad-1)]/50' : 'bg-white/5 border-transparent'}`}>
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
                     </div>
+
+                    <div className="w-full md:w-2/4 flex flex-col order-1 md:order-2 h-full min-w-0">
+                        <div className="flex gap-2 mb-2 flex-shrink-0 flex-wrap">
+                            <div className="relative flex-grow min-w-[150px]">
+                                <SearchIcon className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
+                                <Input placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="!pl-10 text-sm" />
+                            </div>
+                            <div className="flex bg-bg-offset border border-border-color rounded-lg p-0.5">
+                                <Button variant={viewMode === 'list' ? 'primary' : 'outline'} onClick={() => setViewMode('list')} className="!p-1.5 !border-0"><ListIcon /></Button>
+                                <Button variant={viewMode === 'grid' ? 'primary' : 'outline'} onClick={() => setViewMode('grid')} className="!p-1.5 !border-0"><GridIcon /></Button>
+                            </div>
+                            <Button variant="glass" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-xs md:text-sm"><UploadIcon /> Upload</Button>
+                        </div>
+                        <div onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }} onDragLeave={() => setIsDraggingOver(false)} onDrop={handleDrop} className="relative flex-grow border border-dashed border-border-color rounded-lg p-2 overflow-y-auto">
+                            {isDraggingOver && <div className="absolute inset-0 bg-[var(--grad-1)]/20 backdrop-blur-sm z-10 flex items-center justify-center text-lg font-semibold border-2 border-dashed border-[var(--grad-1)] rounded-lg pointer-events-none"><UploadIcon className="mr-2"/> Drop files to upload</div>}
+                            {isUploading ? <p className="text-center p-8">Uploading...</p> : (
+                                viewMode === 'grid' ? (
+                                    <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                        {filteredResources.map(res => (
+                                            <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`aspect-square bg-black/20 rounded-lg overflow-hidden cursor-pointer border-2 ${selectedResourceId === res.id && selectedResourceType === res.type ? 'border-[var(--grad-1)]' : 'border-transparent'}`}>
+                                                <div className="w-full h-full relative group">
+                                                    <ResourceThumbnail resource={res} />
+                                                    <p className="absolute bottom-0 left-0 right-0 text-xs truncate p-1 bg-black/50 text-white">{res.title}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {filteredResources.map(res => (
+                                            <div key={`${res.type}-${res.id}`} onClick={() => { setSelectedResourceId(res.id); setSelectedResourceType(res.type); }} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selectedResourceId === res.id && selectedResourceType === res.type ? 'bg-[var(--grad-1)]/20' : 'hover:bg-white/5'}`}>
+                                                <div className="text-2xl">{getResourceIcon(res.type, res.mimeType)}</div>
+                                                <div className="flex-grow min-w-0"><p className="text-sm font-semibold truncate">{res.title}</p><p className="text-xs text-gray-400">{formatBytes(res.size)}</p></div>
+                                                <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
+                                                    {(res.tags || []).map(t => <span key={t} className="text-xs bg-white/10 px-1.5 py-0.5 rounded-full">{t}</span>)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+
+                    {selectedResource ? (
+                        <DetailsPanel 
+                            resource={selectedResource} 
+                            onUpdateFile={handleUpdateFile} 
+                            onUpdateLink={handleUpdateLink} 
+                            onDeleteFile={handleDeleteFile} 
+                            onDeleteLink={handleDeleteLink} 
+                            allFolders={folders} 
+                            onClose={() => setSelectedResourceId(null)}
+                        />
+                    ) : (
+                        <div className="hidden md:flex w-full md:w-1/4 items-center justify-center bg-black/20 rounded-lg text-gray-400 text-center p-4 border border-border-color order-3">
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
+                                Select a resource to see details
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
