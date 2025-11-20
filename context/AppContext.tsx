@@ -1,7 +1,9 @@
 
+
+
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { StudyLog, Semester, Project, Transaction, KanbanBoard, Note, Class, Deck, StoredFileData, KanbanTask, Event, PomodoroLog, Track, Playlist, MusicPlayerState, Habit, JobApplication, Task, TaskStatus, TaskPriority, VisionCard, JournalEntry, FinancialTransaction, TransactionCategory, Budget, AppSettings, DashboardWidgetSetting, SystemModuleSetting, LearningLog, Course, EngagementLog, CustomWheel, LinkResource, PomodoroPreset, LiveCalendarType, LiveClockType, ToolbarItem, Notification, ChatMessage, CodeSnippet } from '../types';
+import { StudyLog, Semester, Project, Transaction, KanbanBoard, Note, Class, Deck, StoredFileData, KanbanTask, Event, PomodoroLog, Track, Playlist, MusicPlayerState, Habit, JobApplication, Task, TaskStatus, TaskPriority, VisionCard, JournalEntry, FinancialTransaction, TransactionCategory, Budget, AppSettings, DashboardWidgetSetting, SystemModuleSetting, LearningLog, Course, EngagementLog, CustomWheel, LinkResource, PomodoroPreset, LiveCalendarType, LiveClockType, ToolbarItem, Notification, ChatMessage, CodeSnippet, PracticeItem, DesignDiagram, AlgoVisual, FeynmanSession, KnowledgeMap, ReferenceItem } from '../types';
 import { addBackup, getBackups, deleteBackup } from '../utils/db';
 
 const DEFAULT_WIDGETS: DashboardWidgetSetting[] = [
@@ -128,6 +130,20 @@ interface AppContextType {
   codeSnippets: CodeSnippet[];
   setCodeSnippets: React.Dispatch<React.SetStateAction<CodeSnippet[]>>;
   
+  // New CS Workspace States
+  practiceItems: PracticeItem[];
+  setPracticeItems: React.Dispatch<React.SetStateAction<PracticeItem[]>>;
+  designDiagrams: DesignDiagram[];
+  setDesignDiagrams: React.Dispatch<React.SetStateAction<DesignDiagram[]>>;
+  algoVisuals: AlgoVisual[];
+  setAlgoVisuals: React.Dispatch<React.SetStateAction<AlgoVisual[]>>;
+  feynmanSessions: FeynmanSession[];
+  setFeynmanSessions: React.Dispatch<React.SetStateAction<FeynmanSession[]>>;
+  knowledgeMap: KnowledgeMap;
+  setKnowledgeMap: React.Dispatch<React.SetStateAction<KnowledgeMap>>;
+  referenceLibrary: ReferenceItem[];
+  setReferenceLibrary: React.Dispatch<React.SetStateAction<ReferenceItem[]>>;
+
   activeSpace: AppSpace;
   setActiveSpace: React.Dispatch<React.SetStateAction<AppSpace>>;
 }
@@ -226,6 +242,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [chatMessages, setChatMessages] = useLocalStorage<ChatMessage[]>('chatMessages', []);
   const [codeSnippets, setCodeSnippets] = useLocalStorage<CodeSnippet[]>('codeSnippets', []);
+  
+  // New CS Workspace State
+  const [practiceItems, setPracticeItems] = useLocalStorage<PracticeItem[]>('practiceItems', []);
+  const [designDiagrams, setDesignDiagrams] = useLocalStorage<DesignDiagram[]>('designDiagrams', []);
+  const [algoVisuals, setAlgoVisuals] = useLocalStorage<AlgoVisual[]>('algoVisuals', []);
+  const [feynmanSessions, setFeynmanSessions] = useLocalStorage<FeynmanSession[]>('feynmanSessions', []);
+  const [knowledgeMap, setKnowledgeMap] = useLocalStorage<KnowledgeMap>('knowledgeMap', { nodes: [], edges: [] });
+  const [referenceLibrary, setReferenceLibrary] = useLocalStorage<ReferenceItem[]>('referenceLibrary', []);
 
   const [appSettings, setAppSettings] = useLocalStorage<AppSettings>('appSettings', {
       theme: 'dark',
@@ -320,7 +344,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifications, setNotifications,
     chatMessages: Array.isArray(chatMessages) ? chatMessages : [], setChatMessages,
     codeSnippets: Array.isArray(codeSnippets) ? codeSnippets : [], setCodeSnippets,
-    activeSpace, setActiveSpace
+    activeSpace, setActiveSpace,
+    // New CS Data
+    practiceItems: Array.isArray(practiceItems) ? practiceItems : [], setPracticeItems,
+    designDiagrams: Array.isArray(designDiagrams) ? designDiagrams : [], setDesignDiagrams,
+    algoVisuals: Array.isArray(algoVisuals) ? algoVisuals : [], setAlgoVisuals,
+    feynmanSessions: Array.isArray(feynmanSessions) ? feynmanSessions : [], setFeynmanSessions,
+    knowledgeMap, setKnowledgeMap,
+    referenceLibrary: Array.isArray(referenceLibrary) ? referenceLibrary : [], setReferenceLibrary,
   };
 
   return (

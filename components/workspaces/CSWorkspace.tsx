@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 
@@ -13,6 +15,9 @@ import FlashcardManager from '../systems/FlashcardManager';
 import CodeEditorWidget from '../systems/CodeEditorWidget';
 import SettingsManager from '../systems/SettingsManager';
 import GlobalSearch from '../systems/GlobalSearch';
+import PracticeArena from '../systems/PracticeArena';
+import DesignStudio from '../systems/DesignStudio';
+import DeepWorkManager from '../systems/DeepWorkManager';
 
 // Dashboard Widgets re-used for context
 import ClassesWidget from '../dashboard/ClassesWidget';
@@ -33,9 +38,12 @@ const Icons = {
     Bell: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
     Menu: () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>,
     Tasks: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
+    Practice: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>,
+    Design: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>,
+    Brain: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
 };
 
-type PageId = 'home' | 'courses' | 'assignments' | 'schedule' | 'analytics' | 'resources' | 'collaboration' | 'tools' | 'tasks' | 'search' | 'settings';
+type PageId = 'home' | 'courses' | 'assignments' | 'schedule' | 'analytics' | 'resources' | 'collaboration' | 'tools' | 'tasks' | 'search' | 'settings' | 'practice' | 'design' | 'deepwork';
 type ToolId = 'code' | 'flashcards';
 
 interface PageConfig {
@@ -154,15 +162,17 @@ const CSWorkspace: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
 
     const pages: PageConfig[] = [
-        { id: 'home', label: 'Dashboard', icon: <Icons.Home />, component: null }, // Handled specifically
+        { id: 'home', label: 'Dashboard', icon: <Icons.Home />, component: null }, 
         { id: 'schedule', label: 'Schedule', icon: <Icons.Calendar />, component: <ClassesWidget isMaximized={true} /> },
         { id: 'courses', label: 'Courses', icon: <Icons.Courses />, component: <AcademicsManager /> },
-        { id: 'assignments', label: 'Assignments', icon: <Icons.Assignments />, component: null }, // Handled specifically
+        { id: 'practice', label: 'Practice Arena', icon: <Icons.Practice />, component: <PracticeArena /> },
+        { id: 'design', label: 'Design Studio', icon: <Icons.Design />, component: <DesignStudio /> },
+        { id: 'deepwork', label: 'Deep Work', icon: <Icons.Brain />, component: <DeepWorkManager /> },
         { id: 'tasks', label: 'Task List', icon: <Icons.Tasks />, component: <TaskManager /> },
         { id: 'analytics', label: 'Analytics', icon: <Icons.Analytics />, component: <AnalyticsManager /> },
         { id: 'resources', label: 'Resources', icon: <Icons.Resources />, component: <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full"><NotesManager /><FileManager /></div> },
         { id: 'collaboration', label: 'Collaboration', icon: <Icons.Collaboration />, component: <CollaborationWidget /> },
-        { id: 'tools', label: 'Tools', icon: <Icons.Tools />, component: null }, // Handled via sub-state
+        { id: 'tools', label: 'Tools', icon: <Icons.Tools />, component: null }, 
         { id: 'search', label: 'Search', icon: <Icons.Search />, component: <GlobalSearch /> },
         { id: 'settings', label: 'Settings', icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>, component: <SettingsManager /> }
     ];
@@ -210,30 +220,15 @@ const CSWorkspace: React.FC = () => {
         </div>
     );
 
-    // Dedicated Assignments List View (Aggregated)
-    const AssignmentsView = () => {
-        return (
-            <div className="h-full flex flex-col">
-                <div className="mb-4">
-                    <h2 className="text-2xl font-bold mb-2">All Assignments</h2>
-                    <p className="text-gray-400 text-sm">A consolidated view of coursework from all your active courses.</p>
-                </div>
-                <div className="flex-grow bg-black/20 rounded-xl p-4 overflow-hidden">
-                    {/* Reuse AcademicsManager but we might want to force it to a specific tab or simpler view. 
-                        For now, we will re-render AcademicsManager as it is the source of truth. 
-                        Alternatively, to be strictly "Assignments", we would map the data manually. 
-                        Let's use a customized view of AcademicsManager essentially.
-                    */}
-                    <AcademicsManager /> 
-                </div>
-            </div>
-        );
-    }
-
     // Render Logic
     const renderContent = () => {
         if (activePageId === 'home') return <HomeDashboard />;
-        if (activePageId === 'assignments') return <AssignmentsView />;
+        if (activePageId === 'assignments') return (
+             <div className="h-full flex flex-col">
+                <div className="mb-4"><h2 className="text-2xl font-bold mb-2">Assignments</h2></div>
+                <div className="flex-grow bg-black/20 rounded-xl p-4 overflow-hidden"><AcademicsManager /></div>
+            </div>
+        );
         if (activePageId === 'tools') {
             return (
                 <div className="h-full flex flex-col">
@@ -283,7 +278,7 @@ const CSWorkspace: React.FC = () => {
                         </button>
                     ))}
                     
-                    <div className="text-xs font-bold text-gray-500 uppercase px-3 mb-2 mt-6">Academics</div>
+                    <div className="text-xs font-bold text-gray-500 uppercase px-3 mb-2 mt-6">Academics & CS</div>
                     {pages.slice(2, 6).map(page => (
                         <button 
                             key={page.id} 

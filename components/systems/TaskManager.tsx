@@ -15,12 +15,12 @@ const downloadJSON = (obj: any, name = 'export.json') => {
     URL.revokeObjectURL(url);
 };
 
-const PRIORITY_CONFIG: Record<TaskPriority, { color: string, label: string, bg: string }> = {
-    'Urgent': { color: 'text-red-200', bg: 'bg-red-500/40 border-red-500', label: 'Urgent' },
-    'High': { color: 'text-orange-200', bg: 'bg-orange-500/40 border-orange-500', label: 'High' },
-    'Medium': { color: 'text-yellow-200', bg: 'bg-yellow-500/40 border-yellow-500', label: 'Medium' },
-    'Low': { color: 'text-blue-200', bg: 'bg-blue-500/40 border-blue-500', label: 'Low' },
-    'None': { color: 'text-gray-300', bg: 'bg-gray-500/20 border-gray-500', label: 'None' },
+const PRIORITY_CONFIG: Record<TaskPriority, { color: string, label: string, bg: string, dot: string, border: string }> = {
+    'Urgent': { color: 'text-red-200', bg: 'bg-red-500/20 border-red-500/30', label: 'Urgent', dot: 'bg-red-500', border: 'border-l-red-500' },
+    'High': { color: 'text-orange-200', bg: 'bg-orange-500/20 border-orange-500/30', label: 'High', dot: 'bg-orange-500', border: 'border-l-orange-500' },
+    'Medium': { color: 'text-yellow-200', bg: 'bg-yellow-500/20 border-yellow-500/30', label: 'Medium', dot: 'bg-yellow-500', border: 'border-l-yellow-500' },
+    'Low': { color: 'text-blue-200', bg: 'bg-blue-500/20 border-blue-500/30', label: 'Low', dot: 'bg-blue-500', border: 'border-l-blue-500' },
+    'None': { color: 'text-gray-400', bg: 'bg-gray-500/10 border-gray-500/20', label: 'None', dot: 'bg-gray-500', border: 'border-l-gray-600' },
 };
 
 const PRIORITY_ORDER: Record<Task['priority'], number> = {
@@ -59,12 +59,15 @@ const TaskCard: React.FC<{
             onDragEnd={onDragEnd}
             onDragOver={onDragOver}
             onClick={onClick}
-            className="group relative bg-white/5 hover:bg-white/10 p-3 rounded-xl cursor-pointer border border-white/5 hover:border-white/20 transition-all shadow-sm hover:shadow-lg hover:-translate-y-1"
+            className={`group relative bg-white/5 hover:bg-white/10 p-3 rounded-xl cursor-pointer border-y border-r border-white/5 hover:border-white/20 transition-all shadow-sm hover:shadow-lg hover:-translate-y-1 border-l-4 ${priorityConfig.border}`}
         >
-            <div className="flex justify-between items-start mb-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${priorityConfig.bg} ${priorityConfig.color} font-bold uppercase tracking-wider`}>
-                    {priorityConfig.label}
-                </span>
+            <div className="flex justify-between items-center mb-2">
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${priorityConfig.bg}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${priorityConfig.dot}`} />
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${priorityConfig.color}`}>
+                        {priorityConfig.label}
+                    </span>
+                </div>
                 {task.dueDate && (
                     <span className={`text-[10px] ${new Date(task.dueDate) < new Date() && task.status !== 'Done' ? 'text-red-400 font-bold' : 'text-gray-400'}`}>
                          {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -161,9 +164,12 @@ const ListView: React.FC<{ tasks: Task[]; onTaskClick: (task: Task) => void; sor
                                 </td>
                                 <td className="p-3 font-medium text-gray-200">{task.title}</td>
                                 <td className="p-3">
-                                    <span className={`px-2 py-0.5 rounded border text-[10px] uppercase font-bold ${priorityConfig.bg} ${priorityConfig.color}`}>
-                                        {priorityConfig.label}
-                                    </span>
+                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] w-fit ${priorityConfig.bg}`}>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${priorityConfig.dot}`} />
+                                        <span className={`font-bold uppercase ${priorityConfig.color}`}>
+                                            {priorityConfig.label}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td className="p-3">
                                     {subtasks.length > 0 ? (

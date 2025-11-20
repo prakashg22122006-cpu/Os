@@ -1,5 +1,6 @@
 
 
+
 export type EngagementActivity = 
   | 'app_session_started'
   | 'view_resource'
@@ -512,4 +513,98 @@ export interface CodeSnippet {
   language: string;
   code: string;
   updatedAt: number;
+}
+
+
+// --- NEW CS WORKSPACE TYPES ---
+
+export type PracticeType = 'question' | 'drill' | 'kata' | 'debug';
+
+export interface PracticeItem {
+    id: number;
+    type: PracticeType;
+    title: string;
+    description: string;
+    content: string; // Code for kata/debug, Question text for others
+    solution?: string; // Correct answer or corrected code
+    tags: string[];
+    difficulty: 'Easy' | 'Medium' | 'Hard';
+    lastPracticed?: number;
+    attempts?: number;
+    successRate?: number; // 0-100
+    timeLimit?: number; // in seconds
+}
+
+export interface DesignNode {
+    id: string;
+    type: 'box' | 'database' | 'actor' | 'cloud' | 'text';
+    label: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
+export interface DesignEdge {
+    id: string;
+    from: string;
+    to: string;
+    label?: string;
+}
+
+export interface DesignDiagram {
+    id: number;
+    title: string;
+    nodes: DesignNode[];
+    edges: DesignEdge[];
+    updatedAt: number;
+}
+
+export interface AlgoVisualStep {
+    description: string;
+    visualData: string; // Could be JSON representing array state, ASCII art, etc.
+}
+
+export interface AlgoVisual {
+    id: number;
+    title: string;
+    steps: AlgoVisualStep[];
+    updatedAt: number;
+}
+
+export interface FeynmanSession {
+    id: number;
+    concept: string;
+    explanation: string; // Step 1
+    gaps: string; // Step 2: Identified missing knowledge
+    simplified: string; // Step 3: Refined simple English
+    analogy: string; // Step 4: Real world analogy
+    updatedAt: number;
+}
+
+export interface KnowledgeNode {
+    id: string;
+    label: string;
+    x: number;
+    y: number;
+}
+
+export interface KnowledgeEdge {
+    id: string;
+    source: string;
+    target: string;
+}
+
+export interface KnowledgeMap {
+    nodes: KnowledgeNode[];
+    edges: KnowledgeEdge[];
+}
+
+export interface ReferenceItem {
+    id: number;
+    title: string;
+    content: string; // Markdown/RichText
+    category: string;
+    tags: string[];
+    updatedAt: number;
 }
